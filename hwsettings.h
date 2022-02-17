@@ -56,7 +56,7 @@ extern "C" {
 #include "devincs.h"
 #include "GenericTypeDefs.h"
 
-// Control bit defintions
+// Control bit definitions
 
 #if defined( __18F25K80) || defined(__18F26K80)
     #define INTEN               INTCONbits.GIEH

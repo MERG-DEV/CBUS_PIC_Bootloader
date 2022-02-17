@@ -138,9 +138,10 @@
  * 
  * Currently written for:
  *  XC8 compiler
+ *     uses cbusdefs.h from cbusdefs 
  *     uses devincs.h from CBUSlib although this could probably be eliminated
  *     Must be compiled with options:
- *         XC8 linker -> MEMORY model -> ROM ranges 0-0x7FF
+ *         XC8 linker -> MEMORY model -> ROM ranges 0-07FF
  *     application code packed with this bootloader must be compiled with options:
  *         XC8 global options -> Additional options --codeoffset=0x800 APP_START
  * 
