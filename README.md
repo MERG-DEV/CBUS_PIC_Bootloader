@@ -1,2 +1,12 @@
 # CBUS_PIC_Bootloader
-A PIC bootloader
+A PIC bootloader based upon Bootloader.asm adapted from Microchip application note AN247 by Roger Healey and Mike Bolton.
+
+Ian Hogg
+
+This work is licensed under the:
+      Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+   To view a copy of this license, visit:
+      http://creativecommons.org/licenses/by-nc-sa/4.0/
+   or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+
+The branch name indicates the compiler and PIC series.
