@@ -54,6 +54,8 @@
 
 #include <main.h>
 
+#include "GenericTypeDefs.h"
+
 #define FLASH_BLOCK_SIZE    64
 #define FLASH_BLOCK_MASK    0x3F
 #define FALSE 0
@@ -163,14 +165,14 @@ void flushFlash(void) {
     //   the holding register.
     // So we put it back into the block here
     TBLPTR--;
-    EECON1bits.EEPGD = 1;   // 1=Program memory, 0=EEPROM
-    EECON1bits.CFGS = 0;    // 0=ProgramMemory/EEPROM, 1=ConfigBits
-    EECON1bits.FREE = 0;    // No erase
-    EECON1bits.WREN = 1;    // enable write to memory
+    EECON1 = 0x84;   // Flash, program, enable write
     // unlock
     EECON2 = 0x55;
     EECON2 = 0xAA;
-    EECON1bits.WR = TRUE;       // start writing (CPU stall))
+    EECON1bits.WR = TRUE;       // start writing 
+    asm("nop");                 // needs a nop before testing the bit
+    while (EECON1bits.WR)       // wait for write to complete
+        ;
     EECON1bits.WREN = FALSE;    // disable write to memory
     
     dirty = FALSE;
@@ -192,15 +194,16 @@ void flushFlash(void) {
  * This writes directly to the Flash Config. It uses the TBLPTR as the address
  */
 void writeConfigByte(unsigned char value) {
+    TABLAT = value;
     asm("TBLWT*");
-    EECON1bits.EEPGD = 1;   // 1=Program memory, 0=EEPROM
-    EECON1bits.CFGS = 1;    // 0=ProgramMemory/EEPROM, 1=ConfigBits
-    EECON1bits.FREE = 0;    // No erase
-    EECON1bits.WREN = 1;    // enable write to memory
+    EECON1 = 0xC4;   // Flash, Config, enable write
     // unlock
     EECON2 = 0x55;
     EECON2 = 0xAA;
-    EECON1bits.WR = TRUE;       // start writing (CPU stall))
+    EECON1bits.WR = TRUE;       // start writing
+    asm("nop");                 // needs a nop before testing the bit
+    while (EECON1bits.WR)       // Wait for the write to complete
+        ;
     EECON1bits.WREN = FALSE;    // disable write to memory
 #ifdef MODE_SELF_VERIFY
     EECON1 = 0xC0;  // Flash Configuration space

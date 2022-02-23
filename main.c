@@ -500,7 +500,7 @@ void main(void) {
 
         
             /********************************************************* 
-             * This is the reset command.
+             * This is the reset command. Used to run the application.
              */
             if (controlFrame.bootSpecialCommand == CMD_RESET) {
                 flushFlash();
@@ -514,9 +514,8 @@ void main(void) {
             }
         
             /*********************************************************
-             * This is the Selfcheck reset command. This routine 
-             * resets the internal check registers, i.e. checksum and 
-             * self verify.
+             * This is the Reset checksum command. This routine 
+             * resets the internal checksum registers and error status. 
              */
             if (controlFrame.bootSpecialCommand == CMD_RST_CHKSM) {
                 ourChecksum.word = 0;
@@ -526,7 +525,7 @@ void main(void) {
             /************************************************************
              *  This is the Test and Run command. The checksum is
              * verified, and the self-write verification bit is checked. 
-             * If both pass, then the boot flag is cleared.
+             * If both pass then OK is sent otherwise a NOK is sent.
              */
             if (controlFrame.bootSpecialCommand == CMD_CHK_RUN) {
                 flushFlash();
