@@ -294,7 +294,6 @@ unsigned char controlFrames;
 unsigned char eepromFrames;
 unsigned char dataFrames;
 
-//unsigned char writtenEeprom;
 
 /* TODOs
  Holding down PB on power up
@@ -303,7 +302,6 @@ unsigned char dataFrames;
     
 // make sure cbus.h is not included before here
 void main(void) {
-//    writtenEeprom=0;
     // first check if the bootflag is set and go to the application if clear
     EEADR = 0xFF;
     EEADRH = 0xFF;
@@ -479,7 +477,6 @@ void main(void) {
                         EEADR++;
                         if (EEADR == 0) EEADRH++;
                     }
-//writtenEeprom=1;
                 }
             }
             
@@ -507,10 +504,7 @@ void main(void) {
                 *controlFramePtr = *bufferPtr;
                 controlFramePtr++;
                 bufferPtr++;
-            }
- //if (writtenEeprom) {
-//     writtenEeprom=0;
- //}           
+            }         
         
             /********************************************************* 
              * This is the NOP command. No need to do anything.
