@@ -287,6 +287,13 @@ volatile unsigned char * bufferPtr;
 unsigned char addrL;
 unsigned char addrH;
 
+
+unsigned char flashFrames;
+unsigned char configFrames;
+unsigned char controlFrames;
+unsigned char eepromFrames;
+unsigned char dataFrames;
+
 //unsigned char writtenEeprom;
 
 /* TODOs
@@ -320,6 +327,11 @@ void main(void) {
         goto APP_RESET_VECT ;
 #endasm
     }
+    flashFrames = 0;
+    configFrames = 0;
+    controlFrames = 0;
+    eepromFrames = 0;
+    dataFrames = 0;
     // by the time we get here we know the EEBOOT flag is set 
     controlFrame.bootSpecialCommand = CMD_NOP;
     controlFrame.bootControlBits = MODE_AUTO_ERASE | MODE_AUTO_INC | MODE_ACK;
@@ -356,6 +368,7 @@ void main(void) {
             /******************
              * Data frame
              ******************/
+            dataFrames++;
 
             // get the address. Load both the EE and Flash/CONFIG addresses.
             TBLPTRU = controlFrame.bootAddress.u & 0xF0;
@@ -371,6 +384,7 @@ void main(void) {
             
             // Now work out what type of memory we are accessing based upon TBLPTRU
             if (TBLPTRU == PROGRAM_ADDRESSU) {    // Will need to be changed if Flash > 64K
+                flashFrames++;
                 // Program flash address
                 if (CAN_PG_BIT) {
                     // read
@@ -416,6 +430,7 @@ void main(void) {
             
             
             if (TBLPTRU == CONFIG_ADDRESSU) {
+                configFrames++;
                 // Config address
                 if (CAN_PG_BIT) {
                     // read
@@ -433,7 +448,8 @@ void main(void) {
                 } else {
                     // write
                     for (w=0; w<frameLength; w++) {
-                        // no need to erase
+                        // no need to erase#
+                        CLRWDT();   // ensure watchdog is cleared whilst writing
                         writeConfigByte(((DataFrame*)&RXB0D0)->data[w]);
                         ourChecksum.word += (((DataFrame*)&RXB0D0)->data[w]);
                         TBLPTRL++;
@@ -444,6 +460,7 @@ void main(void) {
                 }
             }
             if (TBLPTRU == EEPROM_ADDRESSU) {
+                eepromFrames++;
                 // EE address
                 if (CAN_PG_BIT) {
                     // read
@@ -479,6 +496,10 @@ void main(void) {
             /******************
              * Control  frame
              ******************/
+            controlFrames++;
+            // we probably need to flush the Program Flash buffer. No harm done
+            // if we don't need to do it.
+            flushFlash();
             //Copy the specified address and info
             controlFramePtr = (unsigned char*)&controlFrame;
             bufferPtr = &RXB0D0;
@@ -503,7 +524,6 @@ void main(void) {
              * This is the reset command. Used to run the application.
              */
             if (controlFrame.bootSpecialCommand == CMD_RESET) {
-                flushFlash();
                // Clear the boot flag and enter the application
                 EEADR = 0xFF;
                 EEADRH = 0xFF;
@@ -528,7 +548,6 @@ void main(void) {
              * If both pass then OK is sent otherwise a NOK is sent.
              */
             if (controlFrame.bootSpecialCommand == CMD_CHK_RUN) {
-                flushFlash();
                 if ((ourChecksum.word + controlFrame.bootPCChecksum.word != 0) || (errorStatus)) {
                     TXB0D0 = RESPONSE_NOK;
                     TXB0DLC = 1;

@@ -103,9 +103,7 @@ void writeFlashByte(unsigned char value) {
         addrH = TBLPTRH;
         
         // different block
-        if (dirty) {
-            flushFlash();
-        }
+        flushFlash();
         
         // record the start address of the block we have buffered
         bufferAddrL = addrL & ~FLASH_BLOCK_MASK;
@@ -150,6 +148,10 @@ void eraseFlash(void) {
  * @return 
  */
 void flushFlash(void) {
+    // no need to do anything if clean
+    if (!dirty) {
+        return;
+    }
     TBLPTRL = bufferAddrL;
     TBLPTRH = bufferAddrH;
     eraseFlash();
@@ -205,12 +207,18 @@ void writeConfigByte(unsigned char value) {
     while (EECON1bits.WR)       // Wait for the write to complete
         ;
     EECON1bits.WREN = FALSE;    // disable write to memory
+    /* 
+     * The following SELF_VERIFY code was originally written but FCU fills in
+     * missing CONFIG values, such as 0x30004, with 0xFF but these are read back 
+     * as 0x00.
+     * 
 #ifdef MODE_SELF_VERIFY
     EECON1 = 0xC0;  // Flash Configuration space
     if (readFlashByte() != value) {
         errorStatus = VERIFY_ERROR;
     }
 #endif
+     */
 }
 
 /*****************************
