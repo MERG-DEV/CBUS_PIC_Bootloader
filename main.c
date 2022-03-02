@@ -325,6 +325,12 @@ void main(void) {
         goto APP_RESET_VECT ;
 #endasm
     }
+    
+    // enable the 4x PLL
+    OSCTUNEbits.PLLEN = 1; 
+    clkMHz = 64;
+    BRGCON1 = (clkMHz/4 -1);    // adjust the CAN prescalar
+    
     flashFrames = 0;
     configFrames = 0;
     controlFrames = 0;
@@ -446,9 +452,32 @@ void main(void) {
                 } else {
                     // write
                     for (w=0; w<frameLength; w++) {
-                        // no need to erase#
+                        // no need to erase config bytes
                         CLRWDT();   // ensure watchdog is cleared whilst writing
-                        writeConfigByte(((DataFrame*)&RXB0D0)->data[w]);
+                        // write config byte
+                        TABLAT = (((DataFrame*)&RXB0D0)->data[w]);
+                        asm("TBLWT*");
+                        EECON1 = 0xC4;   // Flash, Config, enable write
+                        // unlock
+                        EECON2 = 0x55;
+                        EECON2 = 0xAA;
+                        EECON1bits.WR = TRUE;       // start writing
+                        asm("nop");                 // needs a nop before testing the bit
+                        while (EECON1bits.WR)       // Wait for the write to complete
+                           ;
+                        EECON1bits.WREN = FALSE;    // disable write to memory
+                        /* 
+                         * The following SELF_VERIFY code was originally written but FCU fills in
+                         * missing CONFIG values, such as 0x30004, with 0xFF but these are read back 
+                         * as 0x00.
+                         * 
+#ifdef MODE_SELF_VERIFY
+                        EECON1 = 0xC0;  // Flash Configuration space
+                        if (readFlashByte() != value) {
+                            errorStatus = VERIFY_ERROR;
+                        }
+#endif
+                         */
                         ourChecksum.word += (((DataFrame*)&RXB0D0)->data[w]);
                         TBLPTRL++;
                         if (TBLPTRL==0) {
