@@ -156,6 +156,9 @@
 #include <main.h>
 #include <bl_romops.h>
 
+// #define STATS        // Uncomment to collect stats of numbers of each type of message received
+#define SELF_VERIFY     // uncomment to read back data to ensure it has written ok
+
 #define	PIC_HIGH_INT_VECT	0x0008	//HP interrupt vector redirect. Change if target is different
 #define	PIC_LOW_INT_VECT	0x0018	//LP interrupt vector redirect. Change if target is different.
 #define	PIC_RESET_VECT      0x0000	//start of bootloader
@@ -186,13 +189,14 @@
 #define FLASH_BLOCK_SIZE 0x40
 #define CLK_MHZ         16
 
-            // Program memory < 0x300000 for PIC18F26K80
-            // Config memory = 0x300000 for PIC18F26K80
-            // EEPROM data = 0xF00000 for PIC18F26K80
-#define PROGRAM_ADDRESSU    0x00
-#define EEPROM_ADDRESSU     0xF0
-#define CONFIG_ADDRESSU     0x30
-#define PROGRAM_LOWER_ADDRESSH 0x08    // reserve area below this for bootloader
+            // Program memory < 0x00 0000 for PIC18F26K80
+            // Config memory = 0x30 0000 for PIC18F26K80
+            // EEPROM data = 0xF0 0000 for PIC18F26K80
+#define PROGRAM_ADDRESSU    (unsigned char)0x00
+#define EEPROM_ADDRESSU     (unsigned char)0xF0
+#define CONFIG_ADDRESSU     (unsigned char)0x30
+#define ADDRESSU_TYPE_MASK  (unsigned char)0xF0
+#define PROGRAM_LOWER_ADDRESSH (unsigned char)0x08    // reserve area below this for bootloader
 
             // transmit header
 #define	CAN_TXB0SIDH	0b10000000
@@ -287,13 +291,14 @@ volatile unsigned char * bufferPtr;
 unsigned char addrL;
 unsigned char addrH;
 
-
+#ifdef STATS
 unsigned char flashFrames;
 unsigned char configFrames;
 unsigned char controlFrames;
 unsigned char eepromFrames;
 unsigned char dataFrames;
-
+unsigned char reset_chk_command;
+#endif
 
 /* TODOs
  Holding down PB on power up
@@ -330,12 +335,15 @@ void main(void) {
     OSCTUNEbits.PLLEN = 1; 
     clkMHz = 64;
     BRGCON1 = (clkMHz/4 -1);    // adjust the CAN prescalar
-    
+
+#ifdef STATS
     flashFrames = 0;
     configFrames = 0;
     controlFrames = 0;
     eepromFrames = 0;
     dataFrames = 0;
+    reset_chk_command = 0;
+#endif
     // by the time we get here we know the EEBOOT flag is set 
     controlFrame.bootSpecialCommand = CMD_NOP;
     controlFrame.bootControlBits = MODE_AUTO_ERASE | MODE_AUTO_INC | MODE_ACK;
@@ -372,10 +380,12 @@ void main(void) {
             /******************
              * Data frame
              ******************/
+#ifdef STATS
             dataFrames++;
+#endif
 
             // get the address. Load both the EE and Flash/CONFIG addresses.
-            TBLPTRU = controlFrame.bootAddress.u & 0xF0;
+            TBLPTRU = controlFrame.bootAddress.u & 0x1F;
             TBLPTRH = controlFrame.bootAddress.h;
             TBLPTRL = controlFrame.bootAddress.l;
             EEADRH = TBLPTRH;
@@ -386,9 +396,12 @@ void main(void) {
                 controlFrame.bootAddress.triple += frameLength;
             }
             
-            // Now work out what type of memory we are accessing based upon TBLPTRU
-            if (TBLPTRU == PROGRAM_ADDRESSU) {    // Will need to be changed if Flash > 64K
+            // Now work out what type of memory we are accessing based upon top 4 bits of address
+            // This also
+            if ((controlFrame.bootAddress.u & ADDRESSU_TYPE_MASK) == PROGRAM_ADDRESSU) {  
+#ifdef STATS
                 flashFrames++;
+#endif
                 // Program flash address
                 if (CAN_PG_BIT) {
                     // read
@@ -430,11 +443,12 @@ void main(void) {
                         errorStatus = ADDRESS_ERROR;
                     }
                 }
-            }
+            } 
             
-            
-            if (TBLPTRU == CONFIG_ADDRESSU) {
+            if ((controlFrame.bootAddress.u & ADDRESSU_TYPE_MASK) == CONFIG_ADDRESSU) {
+#ifdef STATS
                 configFrames++;
+#endif
                 // Config address
                 if (CAN_PG_BIT) {
                     // read
@@ -455,17 +469,8 @@ void main(void) {
                         // no need to erase config bytes
                         CLRWDT();   // ensure watchdog is cleared whilst writing
                         // write config byte
-                        TABLAT = (((DataFrame*)&RXB0D0)->data[w]);
-                        asm("TBLWT*");
-                        EECON1 = 0xC4;   // Flash, Config, enable write
-                        // unlock
-                        EECON2 = 0x55;
-                        EECON2 = 0xAA;
-                        EECON1bits.WR = TRUE;       // start writing
-                        asm("nop");                 // needs a nop before testing the bit
-                        while (EECON1bits.WR)       // Wait for the write to complete
-                           ;
-                        EECON1bits.WREN = FALSE;    // disable write to memory
+                        writeConfigByte(((DataFrame*)&RXB0D0)->data[w]);
+                        
                         /* 
                          * The following SELF_VERIFY code was originally written but FCU fills in
                          * missing CONFIG values, such as 0x30004, with 0xFF but these are read back 
@@ -486,8 +491,10 @@ void main(void) {
                     }
                 }
             }
-            if (TBLPTRU == EEPROM_ADDRESSU) {
+            if ((controlFrame.bootAddress.u & ADDRESSU_TYPE_MASK) == EEPROM_ADDRESSU) {
+#ifdef STATS
                 eepromFrames++;
+#endif
                 // EE address
                 if (CAN_PG_BIT) {
                     // read
@@ -522,7 +529,9 @@ void main(void) {
             /******************
              * Control  frame
              ******************/
+#ifdef STATS
             controlFrames++;
+#endif
             // we probably need to flush the Program Flash buffer. No harm done
             // if we don't need to do it.
             flushFlash();
@@ -561,6 +570,9 @@ void main(void) {
              * resets the internal checksum registers and error status. 
              */
             if (controlFrame.bootSpecialCommand == CMD_RST_CHKSM) {
+#ifdef STATS
+                reset_chk_command++;
+#endif
                 ourChecksum.word = 0;
                 errorStatus = NO_ERROR;
             }
@@ -571,7 +583,7 @@ void main(void) {
              * If both pass then OK is sent otherwise a NOK is sent.
              */
             if (controlFrame.bootSpecialCommand == CMD_CHK_RUN) {
-                if ((ourChecksum.word + controlFrame.bootPCChecksum.word != 0) || (errorStatus)) {
+                if (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) || (errorStatus)) {
                     TXB0D0 = RESPONSE_NOK;
                     TXB0DLC = 1;
                     canSendMessage();
