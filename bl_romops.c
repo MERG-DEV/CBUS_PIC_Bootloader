@@ -210,7 +210,7 @@ void writeConfigByte(unsigned char value) {
     /* 
      * The following SELF_VERIFY code was originally written but FCU fills in
      * missing CONFIG values, such as 0x30004, with 0xFF but these are read back 
-     * as 0x00.
+     * as 0x00 so many CONFIG bytes would fail verification but be correct.
      * 
 #ifdef MODE_SELF_VERIFY
     EECON1 = 0xC0;  // Flash Configuration space
@@ -249,7 +249,7 @@ void ee_write(unsigned char data) {
             ;
         EEIF = 0;
         EECON1bits.WREN = 0;		/* Disable writes */
-    } while (ee_read() != data);    //repeat is no match
+    } while (ee_read() != data);    //repeat if no match. This makes SELF_VERIFY unnecessary here
 }
 
 /**
