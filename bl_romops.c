@@ -56,25 +56,47 @@
 
 #include "GenericTypeDefs.h"
 
+#if defined(_18F66K80_FAMILY_)
 #define FLASH_BLOCK_SIZE    64
 #define FLASH_BLOCK_MASK    0x3F
+#define CONFIGU             0x30
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+#define FLASH_BLOCK_SIZE    256
+#define FLASH_BLOCK_MASK    0xFF
+#endif
 #define FALSE 0
 #define TRUE 1
-#define CONFIGU             0x30
 
 static unsigned char buffer[FLASH_BLOCK_SIZE];
 static unsigned char bufferAddrL;
 static unsigned char bufferAddrH;
-static unsigned char dirty;
+#if defined(_18F66K80_FAMILY_)
 #define BLOCK(h, l)  (((int)h<<8)|(l&(~FLASH_BLOCK_MASK)))
-#define CLEARING_BITS(a, b) (a & (~b))
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+static unsigned char bufferAddrU;
+#define BLOCK(u, h, l)  (((int24_t)u<<16)|((int)h<<8)|(l&(~FLASH_BLOCK_MASK)))
+#endif
 
+
+#define CLEARING_BITS(a, b) (a & (~b))
+static unsigned char dirty;
+
+#if defined(_18F66K80_FAMILY_)
 static unsigned char w;
+#endif
 static unsigned char addrL;
 static unsigned char addrH;
+#if defined(_18FXXQ83_FAMILY_)
+static unsigned char addrU;
 
+static uint16_t w;
+#endif
+
+#ifdef MODE_SELF_VERIFY
 unsigned char errorStatus;
-
+#endif
 
 void initRomops(void) {
     dirty = FALSE;
@@ -93,16 +115,19 @@ unsigned char readFlashByte(void) {
 }
 
 /* 
- * Write a byte into the buffer. writes to the TBLPTR address
+ * Write a byte into the buffer. Writes to the TBLPTR or NVMADR address
  * It will flush the old buffer contents if this is for a different block.
  */
 void writeFlashByte(unsigned char value) {
     // check if this is the block we already have buffered or a different block
+    
+#if defined(_18F66K80_FAMILY_)
     if (BLOCK(TBLPTRH, TBLPTRL) != BLOCK(bufferAddrH, bufferAddrL)) {
+        // different block
+        
         addrL = TBLPTRL;    // preserve the TBLPTR
         addrH = TBLPTRH;
         
-        // different block
         flushFlash();
         
         // record the start address of the block we have buffered
@@ -122,13 +147,45 @@ void writeFlashByte(unsigned char value) {
     }
     // save to the lock buffer
     buffer[TBLPTRL & FLASH_BLOCK_MASK] = value;
-
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+    if (BLOCK(NVMADRU, NVMADRH, NVMADRL) != BLOCK(bufferAddrU, bufferAddrH, bufferAddrL)) {
+        // different block
+        
+        addrL = NVMADRL;    // preserve the NVMADR
+        addrH = NVMADRH;
+        addrU = NVMADRU;
+        
+        flushFlash();       // erase and save old block
+        // record the start address of the block we have buffered
+        bufferAddrL = addrL & ~FLASH_BLOCK_MASK;
+        bufferAddrH = addrH;
+        bufferAddrU = addrU;
+        
+        // ready?
+        while (NVMCON0bits.GO)
+            ;
+        //Load NVMADR with the starting address of the memory page
+        NVMADRU = bufferAddrU;
+        NVMADRH = bufferAddrH;
+        NVMADRL = bufferAddrL;
+        NVMCON1bits.NVMCMD = 0x02;      //Set the page read command
+        NVMCON0bits.GO = 1;             //Start page read
+        NVMCON1bits.NVMCMD = 0x00;      //Clear the NVM Command
+    }
+    if (CLEARING_BITS(buffer[bufferAddrL & FLASH_BLOCK_MASK], value)) {
+        dirty = TRUE;
+    }
+    // save to the lock buffer
+    buffer[bufferAddrL & FLASH_BLOCK_MASK] = value;
+#endif
 }
 
 /**
  * Erase the blocked pointed to by TBLPTR
  */
 void eraseFlash(void) {
+#if defined(_18F66K80_FAMILY_)
     EECON1bits.EEPGD = 1;   // 1=Program memory, 0=EEPROM
     EECON1bits.CFGS = 0;    // 0=Program memory/EEPROM, 1=ConfigBits
     EECON1bits.WREN = 1;    // enable write to memory
@@ -139,6 +196,17 @@ void eraseFlash(void) {
     EECON2 = 0xaa;          // write 0xaa
     EECON1bits.WR = 1;      // start erasing
     EECON1bits.WREN = 0;    // disable write to memory
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+    NVMCON1bits.NVMCMD = 0x06;      //Set the page erase command
+    //Perform the unlock sequence 
+    NVMLOCK = 0x55;
+    NVMLOCK = 0xAA;
+    NVMCON0bits.GO = 1;             //Start byte write
+    while (NVMCON0bits.GO)
+        ;
+    NVMCON1bits.NVMCMD = 0x00;      //Clear the NVM Command
+#endif
 }
 
 /**
@@ -152,6 +220,7 @@ void flushFlash(void) {
     if (!dirty) {
         return;
     }
+#if defined(_18F66K80_FAMILY_)
     TBLPTRL = bufferAddrL;
     TBLPTRH = bufferAddrH;
     eraseFlash();
@@ -176,11 +245,27 @@ void flushFlash(void) {
     while (EECON1bits.WR)       // wait for write to complete
         ;
     EECON1bits.WREN = FALSE;    // disable write to memory
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+    NVMADRL = bufferAddrL;
+    NVMADRH = bufferAddrH;
+    NVMADRU = bufferAddrU;
+    eraseFlash();
+    NVMCON1bits.NVMCMD = 0x05;      //Set the page write command
+    //Perform the unlock sequence 
+    NVMLOCK = 0x55;
+    NVMLOCK = 0xAA;
+    NVMCON0bits.GO = 1;             //Start byte write
+    while (NVMCON0bits.GO)
+        ;
+    NVMCON1bits.NVMCMD = 0x00;      //Clear the NVM Command
+#endif
     
     dirty = FALSE;
     
 #ifdef MODE_SELF_VERIFY
     // read back to verify
+#if defined(_18F66K80_FAMILY_)
     for (w=0; w<FLASH_BLOCK_SIZE; w++) {
         TBLPTRL = bufferAddrL+w;
         TBLPTRH = bufferAddrH;
@@ -190,12 +275,25 @@ void flushFlash(void) {
         }
     }
 #endif
+#if defined(_18FXXQ83_FAMILY_)
+    //Load NVMADR with the starting address of the memory page
+    NVMADRU = bufferAddrU;
+    NVMADRH = bufferAddrH;
+    NVMADRL = bufferAddrL;
+    NVMCON1bits.NVMCMD = 0x02;      //Set the page read command
+    NVMCON0bits.GO = 1;             //Start page read
+    while (NVMCON0bits.GO)
+        ;
+    NVMCON1bits.NVMCMD = 0x00;      //Clear the NVM Command
+#endif
+#endif
 }
 
 /**
  * This writes directly to the Flash Config. It uses the TBLPTR as the address
  */
 void writeConfigByte(unsigned char value) {
+#if defined(_18F66K80_FAMILY_)
     TABLAT = value;
     asm("TBLWT*");
     EECON1 = 0xC4;   // Flash, Config, enable write
@@ -219,6 +317,23 @@ void writeConfigByte(unsigned char value) {
     }
 #endif
      */
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+    // ready?
+    while (NVMCON0bits.GO)
+        ;
+    NVMCON1bits.NVMCMD = 0;
+    NVMCON0bits.GO = 1;
+    
+    NVMDATL = value;
+    NVMDATH = 0;
+    NVMCON1bits.NVMCMD = 3;
+    //Perform the unlock sequence 
+    NVMLOCK = 0x55;
+    NVMLOCK = 0xAA;
+    NVMCON0bits.GO = 1;
+    NVMCON1bits.NVMCMD = 0;
+#endif
 }
 
 /*****************************
@@ -234,6 +349,7 @@ void writeConfigByte(unsigned char value) {
  */
 void ee_write(unsigned char data) {
     do {
+#if defined(_18F66K80_FAMILY_)
         EEDATA = data;
         EECON1bits.EEPGD = 0;       /* Point to DATA memory */
         EECON1bits.CFGS = 0;        /* Access program FLASH/Data EEPROM memory */
@@ -249,6 +365,23 @@ void ee_write(unsigned char data) {
             ;
         EEIF = 0;
         EECON1bits.WREN = 0;		/* Disable writes */
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+        //Load NVMDAT with the desired value
+        NVMDATL = data;
+        //Set the byte write command
+        NVMCON1bits.NVMCMD = 0x03;
+        //Perform the unlock sequence 
+        NVMLOCK = 0x55;
+        NVMLOCK = 0xAA;
+        //Start byte write
+        NVMCON0bits.GO = 1;
+        while (NVMCON0bits.GO)
+            ;
+        //Clear the NVM Command
+        NVMCON1bits.NVMCMD = 0x00;
+#endif
+        
     } while (ee_read() != data);    //repeat if no match. This makes SELF_VERIFY unnecessary here
 }
 
@@ -258,6 +391,7 @@ void ee_write(unsigned char data) {
  * @return the byte from EEPROM
  */
 unsigned char ee_read(void) {
+#if defined(_18F66K80_FAMILY_)
     while (EECON1bits.WR)       // Errata says this is required
         ;
     EECON1bits.EEPGD = 0;    	/* Point to DATA memory */
@@ -267,4 +401,14 @@ unsigned char ee_read(void) {
         ;
     asm("NOP");                 /* data available after a NOP */
     return EEDATA;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+    //Set the byte read command
+    NVMCON1bits.NVMCMD = 0x00;
+    //Start byte read
+    NVMCON0bits.GO = 1;
+    while (NVMCON0bits.GO)
+        ;
+    return NVMDATL;
+#endif
 }

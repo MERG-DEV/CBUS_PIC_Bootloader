@@ -22,10 +22,13 @@ extern unsigned char readFlashByte(void);
 extern void writeFlashByte(unsigned char value);
 extern void writeConfigByte(unsigned char value);
 
-#define	VERIFY_ERROR    0x01       // Failed to verify if set
+            // error codes
+#define NO_ERROR        0x00
+#define VERIFY_ERROR    0x01
+#define	ADDRESS_ERROR   0x02       // Tried to write to an invalid address
 
 #ifdef MODE_SELF_VERIFY
-extern unsigned char errorStatus;
+    extern uint8_t errorStatus;
 #endif
 
 #ifdef	__cplusplus

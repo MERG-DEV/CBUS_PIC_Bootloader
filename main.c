@@ -38,12 +38,13 @@
   Note:   This source code has been written using a tab stop and indentation setting
           of 4 characters. To see everything lined up correctly, please set your
           IDE or text editor to the same settings.
-******************************************************************************************************
-	
- *************************************************************** * * * * * * * * * * * * * * *
- *	CBUS bootloader
+******************************************************************************************************/
+
+ /**
+ * @file
+ * CBUS bootloader
  *
- *	Based on the Microchip botloader 'canio.asm' tho which full acknowledgement is made.
+ *	Based on the Microchip bootloader 'canio.asm' tho which full acknowledgement is made.
  *	Relevant information is contained in the Microchip Application note AN247
  *
  *   This part of the CBUS firmware is distributed under the Microchip
@@ -54,13 +55,23 @@
  *   license and is not licensed under GNU or Creative Commons.
  *   You must conform to Microchip license terms in respect of the bootloader.
  *
- *
+ * @details
  * Basic Operation:
  * The following is a CAN bootloader designed for PIC18F microcontrollers
  * with built-in CAN such as the PIC18F458. The bootloader is designed to
- * be simple, small, flexible, and portable.
+ * be simple, small, flexible, and portable. The bootloader resides within the 
+ * bottom 2K bytes (0x0 ~ 0x07FF) of Flash memory. The processor's reset vector
+ * points to the start of the bootloader. Upon reset the bootloader checks the
+ * top address of EEPROM and if this is zero control is then passed to the user
+ * application at address 0x800.
+ * The user application should be compiled with option --CODEOFFSET=0x800 so that 
+ * the compiler places its reset and interrupt vectors starting at 0x800.
+ * If the top EEPROM address is non zero then control continues within the 
+ * bootloader which awaits commands from the CAN interface.
+ * The bootloader uses 29bit extended ids to carry the command and control
+ * information.
  * 
- * ;*
+ * 
  * Commands:
  * Put commands received from source (Master --> Slave)
  * The count (DLC) can vary.
@@ -133,7 +144,8 @@
  *	
  * History for this file:
  *  30/10/09    Mike Bolton     - Modified Bootloader.asm version of the Microchip code 
- *  27/01/22    Ian Hogg        - ported to XC8 from Bootloader.asm
+ *  27/01/22    Ian Hogg        - ported to XC8 from Bootloader.asm for PIC18F26K80
+ *  03/04/24    Ian Hogg        - updated to support PIC18F27Q83
  * 
  * 
  * Currently written for:
@@ -146,7 +158,7 @@
  *         XC8 global options -> Additional options --codeoffset=0x800 APP_START
  * 
  * This file used the following PIC peripherals:
- *  * ECAN
+ *  * CAN
  * 
  */
 
@@ -154,10 +166,10 @@
 #include <stdint.h>
 #include <hwsettings.h>
 #include <main.h>
-#include <bl_romops.h>
-
 // #define STATS        // Uncomment to collect stats of numbers of each type of message received
 #define SELF_VERIFY     // uncomment to read back data to ensure it has written ok
+
+#include <bl_romops.h>
 
 #define	PIC_HIGH_INT_VECT	0x0008	//HP interrupt vector redirect. Change if target is different
 #define	PIC_LOW_INT_VECT	0x0018	//LP interrupt vector redirect. Change if target is different.
@@ -167,27 +179,33 @@
 #define	APP_LOW_INT_VECT	0x0818	//LP interrupt vector redirect. Change if target is different.
 #define	APP_RESET_VECT      0x0800	//start of app
 
-
+/**
+ * Even though this bootloader doesn't use interrupts we must ensure that the
+ * interrupts are available in case the application wants to use them.
+ * Here we redirect the interrupt vectors through to the start of App +0x0008 
+ * and +0x0018 so that they reside at 0x0808 and 0x0818.
+ */
 // Interrupt service routine vectors
-#asm
-    PSECT HiVector,class=CODE,delta=1,abs
-    ORG PIC_HIGH_INT_VECT
-    goto APP_HIGH_INT_VECT
+//#asm
+    asm("PSECT HiVector,class=CODE,delta=1,abs");
+    asm("ORG "  ___mkstr(PIC_HIGH_INT_VECT) );
+    asm("goto "  ___mkstr(APP_HIGH_INT_VECT) );
             
-    PSECT LoVector,class=CODE,delta=1,abs
-    ORG PIC_LOW_INT_VECT
-    goto APP_LOW_INT_VECT
-#endasm
+    asm("PSECT LoVector,class=CODE,delta=1,abs");
+    asm("ORG "  ___mkstr(PIC_LOW_INT_VECT) );
+    asm("goto "  ___mkstr(APP_LOW_INT_VECT) );
+//#endasm
 
-
+#define CLK_MHZ         16
+    
+#if defined(_18F66K80_FAMILY_)
 #define	CAN_CD_BIT      RXB0EIDLbits.RXB0EID0	//Received control  bit
 #define	CANTX_CD_BIT	TXB0EIDLbits.TXB0EID0	//Transmit control/data select bit
-#define	CAN_TXB0SIDH	0b10000000	//Transmitted ID for target node/ data select bit
+#define	CAN_SIDH	0b10000000	//Transmitted ID for target node/ data select bit
 #define	CAN_PG_BIT      RXB0EIDLbits.RXB0EID1	//Received PUT / GET
 
 #define FLASH_BLOCK_MASK 0x3F
 #define FLASH_BLOCK_SIZE 0x40
-#define CLK_MHZ         16
 
             // Program memory < 0x00 0000 for PIC18F26K80
             // Config memory = 0x30 0000 for PIC18F26K80
@@ -197,12 +215,121 @@
 #define CONFIG_ADDRESSU     (unsigned char)0x30
 #define ADDRESSU_TYPE_MASK  (unsigned char)0xF0
 #define PROGRAM_LOWER_ADDRESSH (unsigned char)0x08    // reserve area below this for bootloader
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+#define	CAN_CD_BIT      (rxFifoObj[RX_EIDL]&0x08)	//Received control  bit
+#define	CANTX_CD_BIT	(txFifoObj[TX_EIDL]&0x08)	//Transmit control/data select bit
+#define	CAN_SIDH	0b10000000	//Transmitted ID for target node/ data select bit
+#define	CAN_PG_BIT      (rxFifoObj[RX_EIDL]&0x10)	//Received PUT / GET
+
+#define FLASH_BLOCK_MASK 0xFF
+#define FLASH_BLOCK_SIZE 0x100
+            // Program memory < 0x00 0000 for PIC18F26K80
+            // Config memory = 0x30 0000 for PIC18F26K80
+            // EEPROM data = 0xF0 0000 for PIC18F26K80
+#define PROGRAM_ADDRESSU    (unsigned char)0x01
+#define EEPROM_ADDRESSU     (unsigned char)0x38
+#define CONFIG_ADDRESSU     (unsigned char)0x30
+#define ADDRESSU_TYPE_MASK  (unsigned char)0xFF
+#define PROGRAM_LOWER_ADDRESSH (unsigned char)0x08    // reserve area below this for bootloader
+    
+#define CAN1_BUFFERS_BASE_ADDRESS           0x3800
+// Transmit FIFO
+#define CAN1_FIFO2_BUFFERS_BASE_ADDRESS     CAN1_BUFFERS_BASE_ADDRESS
+#define CAN1_FIFO2_PAYLOAD_SIZE     16
+#define CAN1_FIFO2_SIZE             32
+// Receive FIFO
+#define CAN1_FIFO3_BUFFERS_BASE_ADDRESS     (CAN1_FIFO2_BUFFERS_BASE_ADDRESS+(CAN1_FIFO2_PAYLOAD_SIZE*CAN1_FIFO2_SIZE))
+#define CAN1_FIFO3_PAYLOAD_SIZE     16
+#define CAN1_FIFO3_SIZE             32
+    
+uint8_t* rxFifoObj;
+// RX Object offsets
+#define RX_SIDL 0
+#define RX_EIDL 1
+#define RX_EIDH 2
+#define RX_EIDU 3
+#define RX_DLC  5
+#define RX_D0   8
+#define RX_D1   9
+#define RX_D2   10
+#define RX_D3   11
+#define RX_D4   12
+#define RX_D5   13
+#define RX_D6   14
+#define RX_D7   15
+
+uint8_t* txFifoObj;
+// TX Object offsets
+#define TX_SIDL 0
+#define TX_EIDL 1
+#define TX_EIDH 2
+#define TX_EIDU 3
+#define TX_DLC  4
+#define TX_D0   8
+#define TX_D1   9
+#define TX_D2   10
+#define TX_D3   11
+#define TX_D4   12
+#define TX_D5   13
+#define TX_D6   14
+#define TX_D7   15
+
+/*******************************
+ * These copied from MCC generated code
+ ********************************/
+/**
+ @ingroup  can_driver
+ @enum     CAN_OP_MODES
+ @brief    Defines the CAN operation modes that are available for the module to use.
+*/
+enum CAN_OP_MODES
+{
+    CAN_NORMAL_FD_MODE = 0x0,           /**< CAN FD Normal Operation Mode (Supported only in CAN FD mode) */
+    CAN_DISABLE_MODE = 0x1,             /**< CAN Disable Operation Mode */               
+    CAN_INTERNAL_LOOPBACK_MODE = 0x2,   /**< CAN Internal Loopback Operation Mode */
+    CAN_LISTEN_ONLY_MODE = 0x3,         /**< CAN Listen only Operation Mode */
+    CAN_CONFIGURATION_MODE = 0x4,       /**< CAN Configuration Operation Mode */
+    CAN_EXTERNAL_LOOPBACK_MODE = 0x5,   /**< CAN External Loopback Operation Mode */
+    CAN_NORMAL_2_0_MODE = 0x6,          /**< CAN 2.0 Operation Mode */
+    CAN_RESTRICTED_OPERATION_MODE =0x7  /**< CAN Restricted Operation Mode */
+}; 
+
+/**
+ @ingroup  can_driver
+ @enum     CAN_OP_MODE_STATUS
+ @brief    Defines the return status of CAN operation mode set API.
+*/
+enum CAN_OP_MODE_STATUS
+{
+    CAN_OP_MODE_REQUEST_SUCCESS,     /**< The requested operation mode set successfully */
+    CAN_OP_MODE_REQUEST_FAIL,        /**< The requested operation mode set failure */
+    CAN_OP_MODE_SYS_ERROR_OCCURED    /**< The system error occurred while setting operation mode. */
+};
+
+/**
+ * @ingroup can_driver
+ * @brief Sets the CAN1 Operation mode.
+ * @pre CAN1_Initialize() function is already called.
+ * @param [in] requestMode - CAN1 Operation mode as described in CAN_OP_MODES.
+ */
+void CAN1_OperationModeSet(const enum CAN_OP_MODES requestMode);
+
+/**
+ * @ingroup can_driver
+ * @brief Gets the CAN1 Operation mode.
+ * @pre CAN1_Initialize() function is already called.
+ * @param None.
+ * @return The present CAN1 Operation mode as described in CAN_OP_MODES.
+ */
+enum CAN_OP_MODES CAN1_OperationModeGet(void);
+#endif
 
             // transmit header
-#define	CAN_TXB0SIDH	0b10000000
-#define	CAN_TXB0SIDL	0b00001000
-#define	CAN_TXB0EIDH	0b00000000	
-#define	CAN_TXB0EIDL	0b00000100
+#define	CAN_SIDH	0b10000000
+#define	CAN_SIDL	0b00001000
+#define	CAN_EIDH	0b00000000	
+#define	CAN_EIDL	0b00000100
             // receive filter
 #define	CAN_RXF0SIDH	0b00000000
 #define	CAN_RXF0SIDL	0b00001000
@@ -240,10 +367,7 @@
 #define	CMD_CHK_RUN		0x03
 #define CMD_BOOT_TEST 	0x04	
             
-            // error codes
-#define NO_ERROR        0x00
-#define VERIFY_ERROR    0x01
-#define	ADDRESS_ERROR   0x02       // Tried to write to an invalid address
+
             
 typedef union {
     struct {
@@ -307,12 +431,6 @@ unsigned char reset_chk_command;
     
 // make sure cbus.h is not included before here
 void main(void) {
-    // first check if the bootflag is set and go to the application if clear
-    EEADR = 0xFF;
-    EEADRH = 0xFF;
-    // Turn off analogue
-    ANCON0 = 0;
-    ANCON1 = 0;
     // Set bit rate as some apps use this to work out clock MHz
     clkMHz = CLK_MHZ;
 
@@ -322,20 +440,47 @@ void main(void) {
      * that need to know the clock speed. Note that on the PIC32 the Peripheral bus prescaler setting will also need to be taken
      * into accounts when configuring time related values for peripherals that use pbclk.
      */
-    BRGCON1 = CAN_BRGCON1;  // Work out BRGCON value from clock MHz
-  
+#if defined(_18F66K80_FAMILY_)
+    BRGCON1 = CAN_BRGCON1;  // Work out BRGCON value from clock MHz to 3
+
+    // Turn off analogue
+    ANCON0 = 0;
+    ANCON1 = 0;
+    // initialise the CAN peripheral
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+    ANSELA = 0;         // Turn off analogue
+    ANSELB = 0;         // Turn off analogue
+#endif
+    
+    // next check if the bootflag is set and go to the application if clear
+#if defined(_18F66K80_FAMILY_)
+    EEADR = 0xFF;
+    EEADRH = 0xFF;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+    //Load NVMADR with the desired byte address
+    NVMADRU = 0x38;
+    NVMADRH = 0x03;
+    NVMADRL = 0xFF;
+#endif
     // FLIM_SW == 0 when pressed
     if ((ee_read() == 0) && (FLiM_SW)) {  // read last byte of EEPROM and check FLiM switch
-#asm
-        goto APP_RESET_VECT ;
-#endasm
+//#asm
+        asm("goto "  ___mkstr(APP_RESET_VECT) );
+//#endasm
     }
     
     // enable the 4x PLL
-    OSCTUNEbits.PLLEN = 1; 
     clkMHz = 64;
-    BRGCON1 = (clkMHz/4 -1);    // adjust the CAN prescalar
-
+#if defined(_18F66K80_FAMILY_)
+    OSCTUNEbits.PLLEN = 1; 
+    BRGCON1 = (clkMHz/4 -1);    // adjust the CAN prescalar to 15
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+    OSCCON1bits.NOSC = 2;
+#endif
+    
 #ifdef STATS
     flashFrames = 0;
     configFrames = 0;
@@ -361,19 +506,27 @@ void main(void) {
     initRomops();
     
     ourChecksum.word = 0;
+#ifdef MODE_SELF_VERIFY
     errorStatus = NO_ERROR;
-
+#endif
     
     // enter bootloading loop awaiting command
     while (1) {
         CLRWDT();   // ensure watchdog is cleared whilst waiting
-        
+#if defined(_18F66K80_FAMILY_)        
         RXB0CONbits.RXFUL = 0;
         // Wait for CAN frame matching filter
-        while(RXB0CONbits.RXFUL == 0);
+        while(RXB0CONbits.RXFUL == 0)
+            ;
         
         frameLength = RXB0DLC & 0x0F;
-        
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+        while (! C1FIFOSTA3Lbits.TFNRFNIF)
+            ;
+        rxFifoObj = (uint8_t*) C1FIFOUA3;   // Pointer to FIFO entry
+        frameLength = rxFifoObj[RX_DLC] & 0x0F;
+#endif        
         // We have received a frame
         // check CD bit first  *  CD bit:	Control = 0, Data = 1
         if (CAN_CD_BIT) {
@@ -383,13 +536,19 @@ void main(void) {
 #ifdef STATS
             dataFrames++;
 #endif
-
             // get the address. Load both the EE and Flash/CONFIG addresses.
+#if defined(_18F66K80_FAMILY_) 
             TBLPTRU = controlFrame.bootAddress.u & 0x1F;
             TBLPTRH = controlFrame.bootAddress.h;
             TBLPTRL = controlFrame.bootAddress.l;
             EEADRH = TBLPTRH;
             EEADR = TBLPTRL;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+            NVMADRU = controlFrame.bootAddress.u;
+            NVMADRH = controlFrame.bootAddress.h;
+            NVMADRL = controlFrame.bootAddress.l;
+#endif
             
             // check if we need to auto increment ready for next data packet
             if (controlFrame.bootControlBits & MODE_AUTO_INC) {
@@ -398,12 +557,14 @@ void main(void) {
             
             // Now work out what type of memory we are accessing based upon top 4 bits of address
             // This also
-            if ((controlFrame.bootAddress.u & ADDRESSU_TYPE_MASK) == PROGRAM_ADDRESSU) {  
+            if ((controlFrame.bootAddress.u & ADDRESSU_TYPE_MASK) == PROGRAM_ADDRESSU) { 
+                /************** FLASH ***************/
 #ifdef STATS
                 flashFrames++;
 #endif
                 // Program flash address
-                if (CAN_PG_BIT) {
+                if (CAN_PG_BIT) {   
+#if defined(_18F66K80_FAMILY_) 
                     // read
                     for (w=0; w<= READ_BYTES_QTY; w++) {
                         EECON1 = 0x80;  //Flash program space
@@ -417,6 +578,25 @@ void main(void) {
                         }
                     }
                     TXB0DLC = READ_BYTES_QTY;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                    // read
+                    // wait for buffer
+                    while (! C1FIFOSTA2Lbits.TFNRFNIF)
+                        ;
+                    txFifoObj = (uint8_t*) C1FIFOUA2;
+                    for (w=0; w<= READ_BYTES_QTY; w++) {
+                        txFifoObj[TX_D0+w] = readFlashByte();
+                        TBLPTRL++;
+                        if (TBLPTRL==0) {
+                            TBLPTRH++;
+                            if (TBLPTRH==0) {
+                                TBLPTRU++;
+                            }
+                        }
+                    }
+                    txFifoObj[TX_DLC] = READ_BYTES_QTY;
+#endif
                     canSendMessage();
                 } else {
                     // write
@@ -427,6 +607,7 @@ void main(void) {
                         } else {
                             // do write
                             for (w=0; w<frameLength; w++) {
+#if defined(_18F66K80_FAMILY_)
                                 writeFlashByte(((DataFrame*)&RXB0D0)->data[w]);
                                 ourChecksum.word += (((DataFrame*)&RXB0D0)->data[w]);
                                 TBLPTRL++;
@@ -436,16 +617,32 @@ void main(void) {
                                         TBLPTRU++;
                                     }
                                 }
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                                writeFlashByte(rxFifoObj[RX_D0+w]);
+                                ourChecksum.word += rxFifoObj[RX_D0+w];
+                                NVMADRL++;
+                                if (NVMADRL==0) {
+                                    NVMADRH++;
+                                    if (NVMADRH==0) {
+                                        NVMADRU++;
+                                    }
+                                }
+#endif
                                 /* Verify is done within flushFlash */
                             }
                         } 
-                    } else {
+                    }
+#ifdef MODE_SELF_VERIFY
+                    else {
                         errorStatus = ADDRESS_ERROR;
                     }
+#endif
                 }
             } 
             
             if ((controlFrame.bootAddress.u & ADDRESSU_TYPE_MASK) == CONFIG_ADDRESSU) {
+                /************** CONFIG ***************/
 #ifdef STATS
                 configFrames++;
 #endif
@@ -453,6 +650,7 @@ void main(void) {
                 if (CAN_PG_BIT) {
                     // read
                     // Note if we need more space this could be merged with read PGM
+#if defined(_18F66K80_FAMILY_)
                     for (w=0; w<= READ_BYTES_QTY; w++) {
                         EECON1 = 0xC0;  //Flash configuration space
                         ((DataFrame *)(&TXB0D0))->data[w] = readFlashByte();
@@ -462,68 +660,129 @@ void main(void) {
                         }
                     }
                     TXB0DLC = READ_BYTES_QTY;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                    // wait for buffer
+                    while (! C1FIFOSTA2Lbits.TFNRFNIF)
+                        ;
+                    txFifoObj = (uint8_t*) C1FIFOUA2;
+                    for (w=0; w<= READ_BYTES_QTY; w++) {
+                        txFifoObj[TX_D0+w] = readFlashByte();
+                        TBLPTRL++;
+                        if (TBLPTRL==0) {
+                            TBLPTRH++;
+                            if (TBLPTRH==0) {
+                                TBLPTRU++;
+                            }
+                        }
+                    }
+                    txFifoObj[TX_DLC] = READ_BYTES_QTY;
+#endif
                     canSendMessage();
                 } else {
                     // write
                     for (w=0; w<frameLength; w++) {
                         // no need to erase config bytes
                         CLRWDT();   // ensure watchdog is cleared whilst writing
+                        
+                        /* Cannot perform SELF_VERIFY for CONFIG as FCU fills in
+                         * missing CONFIG values, such as 0x30004, with 0xFF but these are read back 
+                         * as 0x00. This means the verify always fails.
+                         */
+#if defined(_18F66K80_FAMILY_)
                         // write config byte
                         writeConfigByte(((DataFrame*)&RXB0D0)->data[w]);
-                        
-                        /* 
-                         * The following SELF_VERIFY code was originally written but FCU fills in
-                         * missing CONFIG values, such as 0x30004, with 0xFF but these are read back 
-                         * as 0x00.
-                         * 
-#ifdef MODE_SELF_VERIFY
-                        EECON1 = 0xC0;  // Flash Configuration space
-                        if (readFlashByte() != value) {
-                            errorStatus = VERIFY_ERROR;
-                        }
-#endif
-                         */
                         ourChecksum.word += (((DataFrame*)&RXB0D0)->data[w]);
                         TBLPTRL++;
                         if (TBLPTRL==0) {
                              TBLPTRH++;
                         }
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                        // write config byte
+                        writeConfigByte(rxFifoObj[RX_D0+w]);
+                        ourChecksum.word += rxFifoObj[RX_D0+w];
+                        TBLPTRL++;
+                        if (TBLPTRL==0) {
+                             TBLPTRH++;
+                        }
+#endif
                     }
                 }
             }
             if ((controlFrame.bootAddress.u & ADDRESSU_TYPE_MASK) == EEPROM_ADDRESSU) {
+                /************** EEPROM ***************/
 #ifdef STATS
                 eepromFrames++;
 #endif
                 // EE address
                 if (CAN_PG_BIT) {
                     // read
+#if defined(_18F66K80_FAMILY_)
                     for (w=0; w<= READ_BYTES_QTY; w++) {
                         ((DataFrame *)(&TXB0D0))->data[w] = ee_read();
                         EEADR++;
                         if (EEADR == 0) EEADRH++;
                     }
                     TXB0DLC = READ_BYTES_QTY;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                    while (! C1FIFOSTA2Lbits.TFNRFNIF)
+                        ;
+                    txFifoObj = (uint8_t*) C1FIFOUA2;
+                    for (w=0; w<= READ_BYTES_QTY; w++) {
+                        txFifoObj[TX_D0+w] = ee_read();
+                        NVMADRL++;
+                        if (NVMADRL==0) {
+                             NVMADRH++;
+                        }
+                    }
+                    txFifoObj[TX_DLC] = READ_BYTES_QTY;
+#endif
                     canSendMessage();
                 } else {
                     // do write
+#if defined(_18F66K80_FAMILY_)
                     for (w=0; w<frameLength; w++) {
                         ee_write(((DataFrame*)&RXB0D0)->data[w]);
                         ourChecksum.word += (((DataFrame*)&RXB0D0)->data[w]);
                         EEADR++;
                         if (EEADR == 0) EEADRH++;
                     }
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                    for (w=0; w<frameLength; w++) {
+                        ee_write(rxFifoObj[RX_D0+w]);
+                        ourChecksum.word += rxFifoObj[RX_D0+w];
+                        NVMADRL++;
+                        if (NVMADRL==0) {
+                             NVMADRH++;
+                        }
+                    }
+#endif
                 }
             }
             
             // check whether we have to send an ACK
             if ((! CAN_PG_BIT) && (controlFrame.bootControlBits & MODE_ACK)) {
                 // send an ack
+#if defined(_18F66K80_FAMILY_)
                 TXB0D0 = errorStatus ? RESPONSE_NOK : RESPONSE_OK;
                 TXB0DLC = 1;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                while (! C1FIFOSTA2Lbits.TFNRFNIF)
+                    ;
+                txFifoObj = (uint8_t*) C1FIFOUA2;
+#ifdef MODE_SELF_VERIFY
+                txFifoObj[TX_D0] = errorStatus ? RESPONSE_NOK : RESPONSE_OK;
+#else
+                txFifoObj[TX_D0] = RESPONSE_OK;
+#endif
+                txFifoObj[TX_DLC] = 1;
+#endif
                 canSendMessage();
             }
-            
             
         } else {
             /******************
@@ -537,7 +796,12 @@ void main(void) {
             flushFlash();
             //Copy the specified address and info
             controlFramePtr = (unsigned char*)&controlFrame;
+#if defined(_18F66K80_FAMILY_)
             bufferPtr = &RXB0D0;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+            bufferPtr = &(rxFifoObj[RX_D0]);
+#endif
             for (w=0; w<frameLength; w++) {
                 *controlFramePtr = *bufferPtr;
                 controlFramePtr++;
@@ -557,8 +821,14 @@ void main(void) {
              */
             if (controlFrame.bootSpecialCommand == CMD_RESET) {
                // Clear the boot flag and enter the application
+#if defined(_18F66K80_FAMILY_)
                 EEADR = 0xFF;
                 EEADRH = 0xFF;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                NVMADRL = 0xFF;
+                NVMADRH = 0xFF;
+#endif
                 ee_write(0);
                 LED1Y = LED_OFF;
                 LED2G = LED_OFF;
@@ -574,24 +844,35 @@ void main(void) {
                 reset_chk_command++;
 #endif
                 ourChecksum.word = 0;
+#ifdef MODE_SELF_VERIFY
                 errorStatus = NO_ERROR;
+#endif
             }
         
             /************************************************************
-             *  This is the Test and Run command. The checksum is
+             * This is the Test and Run command. The checksum is
              * verified, and the self-write verification bit is checked. 
              * If both pass then OK is sent otherwise a NOK is sent.
              */
             if (controlFrame.bootSpecialCommand == CMD_CHK_RUN) {
-                if (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) || (errorStatus)) {
-                    TXB0D0 = RESPONSE_NOK;
-                    TXB0DLC = 1;
-                    canSendMessage();
-                } else {
-                    TXB0D0 = RESPONSE_OK;
-                    TXB0DLC = 1;
-                    canSendMessage();
-                }
+#if defined(_18F66K80_FAMILY_)
+                TXB0D0 = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) || (errorStatus)) ? 
+                    RESPONSE_NOK : RESPONSE_OK;
+                TXB0DLC = 1;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                while (! C1FIFOSTA2Lbits.TFNRFNIF)
+                    ;
+                txFifoObj = (uint8_t*) C1FIFOUA2;
+#ifdef MODE_SELF_VERIFY
+                txFifoObj[TX_D0] = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) || (errorStatus)) ? 
+                    RESPONSE_NOK : RESPONSE_OK;
+#else
+                txFifoObj[TX_D0] = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0);
+#endif
+                txFifoObj[TX_DLC] = 1;
+#endif
+                canSendMessage();
             }
             
             
@@ -599,8 +880,17 @@ void main(void) {
              * test module is in BOOT mode
              */
             if (controlFrame.bootSpecialCommand == CMD_BOOT_TEST) {
+#if defined(_18F66K80_FAMILY_)
                 TXB0D0 = RESPONSE_BOOT;
                 TXB0DLC = 1;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                while (! C1FIFOSTA2Lbits.TFNRFNIF)
+                    ;
+                txFifoObj = (uint8_t*) C1FIFOUA2;
+                txFifoObj[TX_D0] = RESPONSE_BOOT;
+                txFifoObj[TX_DLC] = 1;
+#endif
                 canSendMessage();
             }
 
@@ -611,34 +901,52 @@ void main(void) {
 
 
 void canSendMessage() {
+#if defined(_18F66K80_FAMILY_)
      // wait for TXREQ bit to be clear
     while (TXB0CONbits.TXREQ) {
         ;
     }
-
-	TXB0SIDH = CAN_TXB0SIDH; 
-	TXB0SIDL = CAN_TXB0SIDL; 
-	TXB0EIDH = CAN_TXB0EIDH;
-	TXB0EIDL = CAN_TXB0EIDL;
-    
-	CANTX_CD_BIT = 1;
+	TXB0SIDH = CAN_SIDH; 
+	TXB0SIDL = CAN_SIDL; 
+	TXB0EIDH = CAN_EIDH;
+	TXB0EIDL = CAN_EIDL;
+    CANTX_CD_BIT = 1;
 	if (CAN_CD_BIT) {
         CANTX_CD_BIT = 0;
     }
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+    txFifoObj[TX_SIDL] = CAN_SIDL;
+    txFifoObj[TX_EIDL] = (CAN_SIDH & 0x07)      | (CAN_EIDL << 3);
+    txFifoObj[TX_EIDH] = ((CAN_EIDL >> 5)& 0x07) | (CAN_EIDH << 3);
+    txFifoObj[TX_EIDU] = ((CAN_EIDH >> 5)& 0x07);
+	if (CAN_CD_BIT) {
+        txFifoObj[TX_EIDL] &= 0xF7;
+    } else {
+        txFifoObj[TX_EIDL] |= 0x80;
+    }
+#endif
+	
     // request that the message is sent
+#if defined(_18F66K80_FAMILY_)
 	TXB0CONbits.TXREQ = 1;
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+    C1FIFOCON2H |= (_C1FIFOCON2H_TXREQ_MASK | _C1FIFOCON2H_UINC_MASK);
+#endif
 }
 
+#if defined(_18F66K80_FAMILY_)
 void canInit(void) {
-
     IPR5 = 0;    // CAN interrupts priority
 
     // Put module into Configuration mode.
     CANCON = 0b10000000;
     // Wait for config mode
-    while (CANSTATbits.OPMODE2 == 0);
+    while (CANSTATbits.OPMODE2 == 0)
+        ;
 
-    ECANCON   = 0;          // ECAN legacy mode with no FIFOs
+    ECANCON = 0;          // ECAN legacy mode with no FIFOs
  
     /*  The CAN bit rates used for CBUS are calculated as follows:
      *
@@ -676,7 +984,78 @@ void canInit(void) {
     BIE0 = 0;                 // No Rx buffer interrupts
     CANCON = 0;               // Set normal operation mode
 }
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+void canInit(void)
+{
+    // initialise the CAN peripheral
+    RB2PPS = 0x46;      // CANTX
+    CANRXPPS = 013 ;    // octal 1=PORTB 3 = port B3
+    TRISBbits.TRISB2 = 0;  // CAN TX output
+    TRISBbits.TRISB3 = 1;  // CAN RX input
+    IPR5 = 0;    // CAN interrupts priority
+    /* Enable the CAN module */
+    C1CONHbits.ON = 1;
+    
+    // Put module into Configuration mode.
+    CAN1_OperationModeSet(CAN_CONFIGURATION_MODE);
+        
+    /* Initialize the C1FIFOBA with the start address of the CAN FIFO message object area. */
+    C1FIFOBA = CAN1_BUFFERS_BASE_ADDRESS;
+
+    C1CONL = 0x00;      // CLKSEL0 disabled; DeviceNet filter disabled
+    C1CONH = 0x87;      // ON enabled; SIDL disabled; BUSY disabled; WFT T11 Filter; WAKFIL enabled;
+    C1CONU = 0x10;      // TXQEN disabled; STEF disabled; SERRLOM disabled; RTXAT disabled;
+    C1CONT = 0x50;      // TXBWS=5; ABAT=0; REQOP=0
+
+    C1NBTCFGL = 0x00;   // SJW 1;
+    C1NBTCFGH = 0x03;   // TSEG2 4;
+    C1NBTCFGU = 0x02;   // TSEG1 3;
+    C1NBTCFGT = 0x3F;   // BRP 15;
 
 
+    /*
+     * FIFO2 used for transmit
+     * FIFO3 used for receive
+     */
 
+    // Normal TX FIFO
+    C1FIFOCON2L = 0x80; // TXEN enabled; RTREN disabled; RXTSEN disabled; TXATIE disabled; RXOVIE disabled; TFERFFIE disabled; TFHRFHIE disabled; TFNRFNIE disabled;
+    C1FIFOCON2H = 0x04; // FRESET enabled; TXREQ disabled; UINC disabled;
+    C1FIFOCON2U = 0x60; // TXAT unlimited retransmission attempts; TXPRI 0 (low);
+    C1FIFOCON2T = ((CAN1_FIFO2_PAYLOAD_SIZE/8) <<5) | (CAN1_FIFO2_SIZE-1); // PLSIZE 16; FSIZE 32;
+
+    // Normal RX FIFO
+    C1FIFOCON3L = 0x08; // TXEN disabled; RTREN disabled; RXTSEN disabled; TXATIE disabled; RXOVIE disabled; TFERFFIE disabled; TFHRFHIE disabled; TFNRFNIE disabled;
+    C1FIFOCON3H = 0x04; // FRESET enabled; TXREQ disabled; UINC disabled;
+    C1FIFOCON3U = 0x00; // TXAT retransmission disabled; TXPRI 1;
+    C1FIFOCON3T = ((CAN1_FIFO3_PAYLOAD_SIZE/8) <<5) | (CAN1_FIFO3_SIZE-1); // PLSIZE 16; FSIZE 32;
+
+    // Filter 0 for All Extended messages
+    //C1FLTOBJ0L = 0b00000000;
+    //C1FLTOBJ0H = 0b00000000;
+    //C1FLTOBJ0U = 0b00000000;
+    C1FLTOBJ0T = 0b01000000;    // EXIDE set: allow extended ID only
+    // Set up a mask for just extended messages
+    //C1MASK0L = 0b00000000;
+    //C1MASK0H = 0b00000000;
+    //C1MASK0U = 0b00000000;
+    C1MASK0T = 0b01000000;      // MIDE set: filter on EXIDE
+
+    C1FLTCON0L = 0x83;  // FLTEN0 enabled; F1BP FIFO 3 - the normal RX FIFO
+        
+    /* Place CAN1 module in Normal Operation mode */
+    CAN1_OperationModeSet(CAN_NORMAL_2_0_MODE);    
+}
+    /************************************
+ * Section copied from MCC generated code
+ *************************************/
+void CAN1_OperationModeSet(const enum CAN_OP_MODES requestMode)
+{
+    C1CONTbits.REQOP = requestMode;
+    while (C1CONUbits.OPMOD != requestMode)
+        ;
+}
+
+#endif
 
