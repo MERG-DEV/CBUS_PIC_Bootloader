@@ -976,7 +976,9 @@ void canInit(void) {
 	RXM0SIDH = CAN_RXM0SIDH;	
 	RXM0SIDL = CAN_RXM0SIDL;	
 	RXM0EIDH = CAN_RXM0EIDH;			
-	RXM0EIDL = CAN_RXM0EIDL;			
+	RXM0EIDL = CAN_RXM0EIDL;
+    // enable filter 0
+    RXFCON0 = 1;
     // Note - BRGCON1 initialised first above
 	BRGCON2 = CAN_BRGCON2;     		
 	BRGCON3 = CAN_BRGCON3;			
