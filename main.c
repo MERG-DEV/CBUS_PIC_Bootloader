@@ -201,7 +201,6 @@
 #if defined(_18F66K80_FAMILY_)
 #define	CAN_CD_BIT      RXB0EIDLbits.RXB0EID0	//Received control  bit
 #define	CANTX_CD_BIT	TXB0EIDLbits.TXB0EID0	//Transmit control/data select bit
-#define	CAN_SIDH	0b10000000	//Transmitted ID for target node/ data select bit
 #define	CAN_PG_BIT      RXB0EIDLbits.RXB0EID1	//Received PUT / GET
 
 #define FLASH_BLOCK_MASK 0x3F
@@ -249,7 +248,7 @@ uint8_t* rxFifoObj;
 #define RX_EIDL 1
 #define RX_EIDH 2
 #define RX_EIDU 3
-#define RX_DLC  5
+#define RX_DLC  4
 #define RX_D0   8
 #define RX_D1   9
 #define RX_D2   10
@@ -274,6 +273,8 @@ uint8_t* txFifoObj;
 #define TX_D5   13
 #define TX_D6   14
 #define TX_D7   15
+
+#define TX_IDE  0x10
 
 /*******************************
  * These copied from MCC generated code
@@ -326,10 +327,21 @@ enum CAN_OP_MODES CAN1_OperationModeGet(void);
 #endif
 
             // transmit header
-#define	CAN_SIDH	0b10000000
-#define	CAN_SIDL	0b00001000
+// Set up ID
+// SID=0b100 00000000
+// EID= 0b00 00000000 00000100
+#if defined(_18F66K80_FAMILY_)
+#define	CAN_SIDH	0b10001000  //SID=b1000000000 IDE=1 top2 bits of EID=0
+#define	CAN_SIDL	0b00000000
 #define	CAN_EIDH	0b00000000	
 #define	CAN_EIDL	0b00000100
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+#define	CAN_TXO0	0b00000000
+#define	CAN_TXO1	0b00100100
+#define	CAN_TXO2	0b00000000	
+#define	CAN_TXO3	0b00000000
+#endif
             // receive filter
 #define	CAN_RXF0SIDH	0b00000000
 #define	CAN_RXF0SIDL	0b00001000
@@ -391,7 +403,7 @@ typedef union {
 
 
 void canInit(void);
-void canSendMessage(void);
+void canSendMessage(uint8_t cdBit);
 
 
 typedef struct ControlFrame {
@@ -526,7 +538,7 @@ void main(void) {
             ;
         rxFifoObj = (uint8_t*) C1FIFOUA3;   // Pointer to FIFO entry
         frameLength = rxFifoObj[RX_DLC] & 0x0F;
-#endif        
+#endif
         // We have received a frame
         // check CD bit first  *  CD bit:	Control = 0, Data = 1
         if (CAN_CD_BIT) {
@@ -557,7 +569,7 @@ void main(void) {
             
             // Now work out what type of memory we are accessing based upon top 4 bits of address
             // This also
-            if ((controlFrame.bootAddress.u & ADDRESSU_TYPE_MASK) == PROGRAM_ADDRESSU) { 
+            if ((controlFrame.bootAddress.u & ADDRESSU_TYPE_MASK) <= PROGRAM_ADDRESSU) { 
                 /************** FLASH ***************/
 #ifdef STATS
                 flashFrames++;
@@ -595,12 +607,18 @@ void main(void) {
                             }
                         }
                     }
-                    txFifoObj[TX_DLC] = READ_BYTES_QTY;
+                    txFifoObj[TX_DLC] = TX_IDE | READ_BYTES_QTY;
 #endif
-                    canSendMessage();
+                    canSendMessage(1);  // send with data
                 } else {
                     // write
-                    if (TBLPTRH >= PROGRAM_LOWER_ADDRESSH) {
+#if defined(_18F66K80_FAMILY_)
+                    if (TBLPTRH >= PROGRAM_LOWER_ADDRESSH)
+#endif
+#if defined(_18FXXQ83_FAMILY_)
+                    if ((NVMADRU > 0) || (NVMADRH >=PROGRAM_LOWER_ADDRESSH))
+#endif
+                    {
                         /* The erase is done as part of flushFlash() */
                         if ( controlFrame.bootControlBits & MODE_ERASE_ONLY) {
                             eraseFlash();
@@ -676,9 +694,9 @@ void main(void) {
                             }
                         }
                     }
-                    txFifoObj[TX_DLC] = READ_BYTES_QTY;
+                    txFifoObj[TX_DLC] = TX_IDE | READ_BYTES_QTY;
 #endif
-                    canSendMessage();
+                    canSendMessage(1);  // send with data
                 } else {
                     // write
                     for (w=0; w<frameLength; w++) {
@@ -737,9 +755,9 @@ void main(void) {
                              NVMADRH++;
                         }
                     }
-                    txFifoObj[TX_DLC] = READ_BYTES_QTY;
+                    txFifoObj[TX_DLC] = TX_IDE | READ_BYTES_QTY;
 #endif
-                    canSendMessage();
+                    canSendMessage(1);  // send with data
                 } else {
                     // do write
 #if defined(_18F66K80_FAMILY_)
@@ -779,9 +797,9 @@ void main(void) {
 #else
                 txFifoObj[TX_D0] = RESPONSE_OK;
 #endif
-                txFifoObj[TX_DLC] = 1;
+                txFifoObj[TX_DLC] = TX_IDE | 1;
 #endif
-                canSendMessage();
+                canSendMessage(0);  // send with control
             }
             
         } else {
@@ -794,7 +812,7 @@ void main(void) {
             // we probably need to flush the Program Flash buffer. No harm done
             // if we don't need to do it.
             flushFlash();
-            //Copy the specified address and info
+            //Copy the control frame info to save the programming address
             controlFramePtr = (unsigned char*)&controlFrame;
 #if defined(_18F66K80_FAMILY_)
             bufferPtr = &RXB0D0;
@@ -806,7 +824,7 @@ void main(void) {
                 *controlFramePtr = *bufferPtr;
                 controlFramePtr++;
                 bufferPtr++;
-            }         
+            }
         
             /********************************************************* 
              * This is the NOP command. No need to do anything.
@@ -826,8 +844,9 @@ void main(void) {
                 EEADRH = 0xFF;
 #endif
 #if defined(_18FXXQ83_FAMILY_)
+                NVMADRU = 0x38;
+                NVMADRH = 0x03;
                 NVMADRL = 0xFF;
-                NVMADRH = 0xFF;
 #endif
                 ee_write(0);
                 LED1Y = LED_OFF;
@@ -870,9 +889,9 @@ void main(void) {
 #else
                 txFifoObj[TX_D0] = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0);
 #endif
-                txFifoObj[TX_DLC] = 1;
+                txFifoObj[TX_DLC] = TX_IDE | 1;
 #endif
-                canSendMessage();
+                canSendMessage(0);  // send with control
             }
             
             
@@ -880,6 +899,7 @@ void main(void) {
              * test module is in BOOT mode
              */
             if (controlFrame.bootSpecialCommand == CMD_BOOT_TEST) {
+                // A Good response :X80180004N02;
 #if defined(_18F66K80_FAMILY_)
                 TXB0D0 = RESPONSE_BOOT;
                 TXB0DLC = 1;
@@ -889,18 +909,22 @@ void main(void) {
                     ;
                 txFifoObj = (uint8_t*) C1FIFOUA2;
                 txFifoObj[TX_D0] = RESPONSE_BOOT;
-                txFifoObj[TX_DLC] = 1;
+                txFifoObj[TX_DLC] = TX_IDE | 1;
 #endif
-                canSendMessage();
+                canSendMessage(0);  // send with control
             }
 
         }
+#if defined(_18FXXQ83_FAMILY_)
+        // ready for next frame
+        C1FIFOCON3Hbits.UINC = 1;   // Indicate that we have got the message from FIFO
+#endif
     }
 }
 
 
 
-void canSendMessage() {
+void canSendMessage(uint8_t cdBit) {
 #if defined(_18F66K80_FAMILY_)
      // wait for TXREQ bit to be clear
     while (TXB0CONbits.TXREQ) {
@@ -910,20 +934,23 @@ void canSendMessage() {
 	TXB0SIDL = CAN_SIDL; 
 	TXB0EIDH = CAN_EIDH;
 	TXB0EIDL = CAN_EIDL;
-    CANTX_CD_BIT = 1;
-	if (CAN_CD_BIT) {
+    // set the CD in EID[0] bit correctly
+	if (cdBit) {
+        CANTX_CD_BIT = 1;
+    } else {
         CANTX_CD_BIT = 0;
     }
 #endif
 #if defined(_18FXXQ83_FAMILY_)
-    txFifoObj[TX_SIDL] = CAN_SIDL;
-    txFifoObj[TX_EIDL] = (CAN_SIDH & 0x07)      | (CAN_EIDL << 3);
-    txFifoObj[TX_EIDH] = ((CAN_EIDL >> 5)& 0x07) | (CAN_EIDH << 3);
-    txFifoObj[TX_EIDU] = ((CAN_EIDH >> 5)& 0x07);
-	if (CAN_CD_BIT) {
-        txFifoObj[TX_EIDL] &= 0xF7;
+    txFifoObj[0] = CAN_TXO0;
+    txFifoObj[1] = CAN_TXO1;
+    txFifoObj[2] = CAN_TXO2;
+    txFifoObj[3] = CAN_TXO3;
+    // Set the CD bit in EID correctly
+	if (cdBit) {
+        txFifoObj[1] |= 0x08;
     } else {
-        txFifoObj[TX_EIDL] |= 0x80;
+        txFifoObj[1] &= 0xF7;
     }
 #endif
 	
@@ -1025,13 +1052,17 @@ void canInit(void)
     C1FIFOCON2L = 0x80; // TXEN enabled; RTREN disabled; RXTSEN disabled; TXATIE disabled; RXOVIE disabled; TFERFFIE disabled; TFHRFHIE disabled; TFNRFNIE disabled;
     C1FIFOCON2H = 0x04; // FRESET enabled; TXREQ disabled; UINC disabled;
     C1FIFOCON2U = 0x60; // TXAT unlimited retransmission attempts; TXPRI 0 (low);
-    C1FIFOCON2T = ((CAN1_FIFO2_PAYLOAD_SIZE/8) <<5) | (CAN1_FIFO2_SIZE-1); // PLSIZE 16; FSIZE 32;
+    C1FIFOCON2T = (((CAN1_FIFO2_PAYLOAD_SIZE<32) ? (CAN1_FIFO2_PAYLOAD_SIZE/4)-2 :
+                        (CAN1_FIFO2_PAYLOAD_SIZE==32) ? 5 :
+                                                (CAN1_FIFO2_PAYLOAD_SIZE/16)+3) << 5) | (CAN1_FIFO2_SIZE-1);// PLSIZE 8; FSIZE 32;
 
     // Normal RX FIFO
     C1FIFOCON3L = 0x08; // TXEN disabled; RTREN disabled; RXTSEN disabled; TXATIE disabled; RXOVIE disabled; TFERFFIE disabled; TFHRFHIE disabled; TFNRFNIE disabled;
     C1FIFOCON3H = 0x04; // FRESET enabled; TXREQ disabled; UINC disabled;
     C1FIFOCON3U = 0x00; // TXAT retransmission disabled; TXPRI 1;
-    C1FIFOCON3T = ((CAN1_FIFO3_PAYLOAD_SIZE/8) <<5) | (CAN1_FIFO3_SIZE-1); // PLSIZE 16; FSIZE 32;
+    C1FIFOCON3T = (((CAN1_FIFO3_PAYLOAD_SIZE<32) ? (CAN1_FIFO3_PAYLOAD_SIZE/4)-2 :
+                        (CAN1_FIFO3_PAYLOAD_SIZE==32) ? 5 :
+                                                (CAN1_FIFO3_PAYLOAD_SIZE/16)+3) << 5) | (CAN1_FIFO3_SIZE-1); // PLSIZE 8; FSIZE 32;
 
     // Filter 0 for All Extended messages
     //C1FLTOBJ0L = 0b00000000;

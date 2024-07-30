@@ -368,6 +368,7 @@ void ee_write(unsigned char data) {
 #endif
 #if defined(_18FXXQ83_FAMILY_)
         //Load NVMDAT with the desired value
+        NVMADRU = 0x38;
         NVMDATL = data;
         //Set the byte write command
         NVMCON1bits.NVMCMD = 0x03;
@@ -403,6 +404,8 @@ unsigned char ee_read(void) {
     return EEDATA;
 #endif
 #if defined(_18FXXQ83_FAMILY_)
+    NVMADRU = 0x38;
+    
     //Set the byte read command
     NVMCON1bits.NVMCMD = 0x00;
     //Start byte read
