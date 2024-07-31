@@ -331,8 +331,8 @@ enum CAN_OP_MODES CAN1_OperationModeGet(void);
 // SID=0b100 00000000
 // EID= 0b00 00000000 00000100
 #if defined(_18F66K80_FAMILY_)
-#define	CAN_SIDH	0b10001000  //SID=b1000000000 IDE=1 top2 bits of EID=0
-#define	CAN_SIDL	0b00000000
+#define	CAN_SIDH	0b10000000  //SID=0
+#define	CAN_SIDL	0b00001000  // IDE bit set for extended frame and EID top bit set
 #define	CAN_EIDH	0b00000000	
 #define	CAN_EIDL	0b00000100
 #endif
