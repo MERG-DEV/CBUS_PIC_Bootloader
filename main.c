@@ -308,6 +308,16 @@ enum CAN_OP_MODE_STATUS
     CAN_OP_MODE_SYS_ERROR_OCCURED    /**< The system error occurred while setting operation mode. */
 };
 
+typedef enum BL_Versions
+{
+    BL_TYPE_Unknown = 0,
+    BL_TYPE_MikeBolton = 1,
+    BL_TYPE_SysPixie = 2,
+    BL_TYPE_IanHogg = 3
+} BL_Versions;
+#define BL_VERSION  1
+const char bl_version[] = { 'B','L','_','V','E','R','S','I','O','N','=', BL_TYPE_IanHogg, BL_VERSION};
+
 /**
  * @ingroup can_driver
  * @brief Sets the CAN1 Operation mode.
@@ -464,6 +474,8 @@ void main(void) {
     ANSELA = 0;         // Turn off analogue
     ANSELB = 0;         // Turn off analogue
 #endif
+    // initialise the push button and LED ports
+    SetPortDirections();  // make input
     
     // next check if the bootflag is set and go to the application if clear
 #if defined(_18F66K80_FAMILY_)
@@ -872,6 +884,7 @@ void main(void) {
              * This is the Test and Run command. The checksum is
              * verified, and the self-write verification bit is checked. 
              * If both pass then OK is sent otherwise a NOK is sent.
+             * This only does VERIFY and does NOT run the application.
              */
             if (controlFrame.bootSpecialCommand == CMD_CHK_RUN) {
 #if defined(_18F66K80_FAMILY_)

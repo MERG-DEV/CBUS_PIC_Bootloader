@@ -2,10 +2,6 @@
 
  Copyright (C) Pete Brownlow 2014-2017   software@upsys.co.uk
 
-  CBUS CANPanel - Hardware settings for CANPanel module
-
- This code is for a CANPanel CBUS module, to control up to 64 LEDs (or 8 x 7 segment displays)
- and up to 64 push buttons or on/off switches
 
  This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -42,8 +38,6 @@
           of 4 characters. To see everything lined up correctly, please set your
           IDE or text editor to the same settings.
 ******************************************************************************************************
-	
- For version number and revision history see CANPanel.h
 
 */
 #ifndef HWSETTINGS_H
@@ -55,6 +49,7 @@ extern "C" {
 
 #include "devincs.h"
 #include "GenericTypeDefs.h"
+#include "cbusdefs.h"
 
 // Control bit definitions
 
@@ -69,7 +64,12 @@ extern "C" {
 /*
  * These definitions are required by the FLiM library code
  */
-#define FLiM_SW         PORTAbits.RA2
+
+//#pragma message ("HARDWARE    IS " HARDWARE)
+
+#if HARDWARE==MTYP_CANPanel
+#define SetPortDirections(){WPUA=0b00101000;TRISBbits.TRISB6=TRISBbits.TRISB7=0,TRISAbits.TRISA3=1;}
+#define FLiM_SW         PORTAbits.RA3
 #define LED1Y           LATBbits.LATB6  // Yellow LED
 #define LED2G           LATBbits.LATB7  // Green LED
 #define TRIS_LED1Y      TRISBbits.TRISB6
@@ -77,8 +77,21 @@ extern "C" {
 
 #define LED_ON          1               // LEDs are active high
 #define LED_OFF         0
+#elif HARDWARE==MTYP_CANMIO
+#define SetPortDirections(){TRISBbits.TRISB6=TRISBbits.TRISB7=0,TRISAbits.TRISA2=1;}
+#define FLiM_SW         PORTAbits.RA2
+#define LED1Y           LATBbits.LATB6  // Yellow LED
+#define LED2G           LATBbits.LATB7  // Green LED
+#define TRIS_LED1Y      TRISBbits.TRISB6
+#define TRIS_LED2G      TRISBbits.TRISB7
     
-    
+#define LED_ON          1               // LEDs are active high
+#define LED_OFF         0
+#else
+#error You must define a HARDWARE setting in the MPLABX XC8 Defines configuration
+#endif
+
+
 // Macros for clock frequencies
 
 extern BYTE clkMHz;
