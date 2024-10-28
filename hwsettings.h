@@ -49,7 +49,6 @@ extern "C" {
 
 #include "devincs.h"
 #include "GenericTypeDefs.h"
-#include "cbusdefs.h"
 
 // Control bit definitions
 
@@ -60,14 +59,18 @@ extern "C" {
     /*
      * Module specific hardware definitions. Clock speeds and LED ports.
      */
+// Hardware types really determines the Pushbutton ports and LED ports
+// The HARDWARE define must be set within the MPLAB project settings for a
+// particular bootloader config then that config can be added to the module's project
+#define HW_CANMIO       1
+#define HW_CANPAN3      2
+    
 // FLiM Pushbutton and status LEDs
 /*
  * These definitions are required by the FLiM library code
  */
 
-//#pragma message ("HARDWARE    IS " HARDWARE)
-
-#if HARDWARE==MTYP_CANPanel
+#if HARDWARE==HW_CANPAN3
 #define SetPortDirections(){WPUA=0b00101000;TRISBbits.TRISB6=TRISBbits.TRISB7=0,TRISAbits.TRISA3=1;}
 #define FLiM_SW         PORTAbits.RA3
 #define LED1Y           LATBbits.LATB6  // Yellow LED
@@ -77,7 +80,7 @@ extern "C" {
 
 #define LED_ON          1               // LEDs are active high
 #define LED_OFF         0
-#elif HARDWARE==MTYP_CANMIO
+#elif HARDWARE==HW_CANMIO
 #define SetPortDirections(){TRISBbits.TRISB6=TRISBbits.TRISB7=0,TRISAbits.TRISA2=1;}
 #define FLiM_SW         PORTAbits.RA2
 #define LED1Y           LATBbits.LATB6  // Yellow LED
