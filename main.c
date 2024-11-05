@@ -423,6 +423,12 @@ typedef struct ControlFrame {
     unsigned char bootSpecialCommand;  // Special boot commands
     Integer16 bootPCChecksum	;	// Chksum byte fromPC	
 } ControlFrame;
+/**
+ * The Control Frame stores a copy of the last control frame received.
+ * The bootAddress element provides the address of the start of the last 
+ * requested section. The actual address being written or read is kept in the 
+ * TBLPTR or NVMADR registers.
+ */
 ControlFrame controlFrame;   // To keep a copy of the control frame
 unsigned char * controlFramePtr;
 
@@ -534,7 +540,9 @@ void main(void) {
     errorStatus = NO_ERROR;
 #endif
     
-    // enter bootloading loop awaiting command
+    /******************************************
+     * enter bootloading loop awaiting command
+     *****************************************/
     while (1) {
         CLRWDT();   // ensure watchdog is cleared whilst waiting
 #if defined(_18F66K80_FAMILY_)        
@@ -551,7 +559,9 @@ void main(void) {
         rxFifoObj = (uint8_t*) C1FIFOUA3;   // Pointer to FIFO entry
         frameLength = rxFifoObj[RX_DLC] & 0x0F;
 #endif
-        // We have received a frame
+        /****************************************
+         * We have received a frame, decode it
+         ***************************************/
         // check CD bit first  *  CD bit:	Control = 0, Data = 1
         if (CAN_CD_BIT) {
             /******************
@@ -589,7 +599,7 @@ void main(void) {
                 // Program flash address
                 if (CAN_PG_BIT) {   
 #if defined(_18F66K80_FAMILY_) 
-                    // read
+                    // read flash memory
                     for (w=0; w<= READ_BYTES_QTY; w++) {
                         EECON1 = 0x80;  //Flash program space
                         ((DataFrame *)(&TXB0D0))->data[w] = readFlashByte();
@@ -604,7 +614,7 @@ void main(void) {
                     TXB0DLC = READ_BYTES_QTY;
 #endif
 #if defined(_18FXXQ83_FAMILY_)
-                    // read
+                    // read fash memory
                     // wait for buffer
                     while (! C1FIFOSTA2Lbits.TFNRFNIF)
                         ;
@@ -623,7 +633,7 @@ void main(void) {
 #endif
                     canSendMessage(1);  // send with data
                 } else {
-                    // write
+                    // write flash memory
 #if defined(_18F66K80_FAMILY_)
                     if (TBLPTRH >= PROGRAM_LOWER_ADDRESSH)
 #endif
@@ -636,11 +646,15 @@ void main(void) {
                             eraseFlash();
                         } else {
                             // do write
+                            /* Writing of flash is done in blocks. The underlying 
+                             * writeFlashByte function handles the handling of 
+                             * the block buffer.
+                             */
                             for (w=0; w<frameLength; w++) {
 #if defined(_18F66K80_FAMILY_)
                                 writeFlashByte(((DataFrame*)&RXB0D0)->data[w]);
                                 ourChecksum.word += (((DataFrame*)&RXB0D0)->data[w]);
-                                TBLPTRL++;
+                                TBLPTRL++;  // increment pointer
                                 if (TBLPTRL==0) {
                                     TBLPTRH++;
                                     if (TBLPTRH==0) {
@@ -651,7 +665,7 @@ void main(void) {
 #if defined(_18FXXQ83_FAMILY_)
                                 writeFlashByte(rxFifoObj[RX_D0+w]);
                                 ourChecksum.word += rxFifoObj[RX_D0+w];
-                                NVMADRL++;
+                                NVMADRL++;  // increment pointer
                                 if (NVMADRL==0) {
                                     NVMADRH++;
                                     if (NVMADRH==0) {
@@ -678,7 +692,7 @@ void main(void) {
 #endif
                 // Config address
                 if (CAN_PG_BIT) {
-                    // read
+                    // read CONFIG
                     // Note if we need more space this could be merged with read PGM
 #if defined(_18F66K80_FAMILY_)
                     for (w=0; w<= READ_BYTES_QTY; w++) {
@@ -710,7 +724,7 @@ void main(void) {
 #endif
                     canSendMessage(1);  // send with data
                 } else {
-                    // write
+                    // write CONFIG
                     for (w=0; w<frameLength; w++) {
                         // no need to erase config bytes
                         CLRWDT();   // ensure watchdog is cleared whilst writing
@@ -900,7 +914,8 @@ void main(void) {
                 txFifoObj[TX_D0] = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) || (errorStatus)) ? 
                     RESPONSE_NOK : RESPONSE_OK;
 #else
-                txFifoObj[TX_D0] = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0);
+                txFifoObj[TX_D0] = ((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) ? 
+                    RESPONSE_NOK : RESPONSE_OK;
 #endif
                 txFifoObj[TX_DLC] = TX_IDE | 1;
 #endif

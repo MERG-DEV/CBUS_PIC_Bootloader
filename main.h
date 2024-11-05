@@ -12,7 +12,7 @@
 extern "C" {
 #endif
     
-#define	MODE_SELF_VERIFY	//Enable self verification of written data (undefine if not wanted)
+//#define	MODE_SELF_VERIFY	//Enable self verification of written data (undefine if not wanted)
 
 
 #ifdef	__cplusplus

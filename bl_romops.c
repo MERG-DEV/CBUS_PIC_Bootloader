@@ -64,26 +64,46 @@
 #if defined(_18FXXQ83_FAMILY_)
 #define FLASH_BLOCK_SIZE    256
 #define FLASH_BLOCK_MASK    0xFF
+
+#define NVMCMD_READ             0x00
+#define NVMCMD_READ_POSTINC     0x01
+#define NVMCMD_READPAGE         0x02
+#define NVMCMD_WRITE            0x03
+#define NVMCMD_WRITE_POSTINC    0x04
+#define NVMCMD_WRITEPAGE        0x05
+#define NVMCMD_ERASEPAGE        0x06
+#define NVMCMD_NOP              0x07
+
 #endif
+
 #define FALSE 0
 #define TRUE 1
 
-static unsigned char buffer[FLASH_BLOCK_SIZE];
+#define BOOTLOADER_UPPER_ADDRESSH   0x08
+
+/**
+ * bufferAddr is used to store the address in memory that the buffer represents.
+ * This needs to be aligned to a block boundary.
+ */
 static unsigned char bufferAddrL;
 static unsigned char bufferAddrH;
 #if defined(_18F66K80_FAMILY_)
+static unsigned char buffer[FLASH_BLOCK_SIZE];
 #define BLOCK(h, l)  (((int)h<<8)|(l&(~FLASH_BLOCK_MASK)))
 #endif
 #if defined(_18FXXQ83_FAMILY_)
+// On the Q series the NVM peripheral uses a fixed RAM buffer at 0x3700
+static unsigned char * buffer = (unsigned char *)0x3700;
 static unsigned char bufferAddrU;
 #define BLOCK(u, h, l)  (((int24_t)u<<16)|((int)h<<8)|(l&(~FLASH_BLOCK_MASK)))
 #endif
 
 
-#define CLEARING_BITS(a, b) (a & (~b))
-static unsigned char dirty;
+
 
 #if defined(_18F66K80_FAMILY_)
+#define CLEARING_BITS(a, b) (a & (~b))
+static unsigned char needsErasing;
 static unsigned char w;
 #endif
 static unsigned char addrL;
@@ -99,10 +119,17 @@ unsigned char errorStatus;
 #endif
 
 void initRomops(void) {
-    dirty = FALSE;
+#if defined(_18F66K80_FAMILY_)
+    needsErasing = FALSE;
+#endif
     for (w=0; w<FLASH_BLOCK_SIZE; w++) {
         buffer[w] = 0xFF;
     }
+    bufferAddrL = 0;
+    bufferAddrH = 0;
+#if defined(_18FXXQ83_FAMILY_)
+    bufferAddrU = 0;
+#endif
 }
 
 /**
@@ -143,21 +170,20 @@ void writeFlashByte(unsigned char value) {
         TBLPTRH = addrH;
     }
     if (CLEARING_BITS(buffer[TBLPTRL & FLASH_BLOCK_MASK], value)) {
-        dirty = TRUE;
+        needsErasing = TRUE;
     }
-    // save to the lock buffer
+    // save to the buffer
     buffer[TBLPTRL & FLASH_BLOCK_MASK] = value;
 #endif
 #if defined(_18FXXQ83_FAMILY_)
     if (BLOCK(NVMADRU, NVMADRH, NVMADRL) != BLOCK(bufferAddrU, bufferAddrH, bufferAddrL)) {
         // different block
-        
-        addrL = NVMADRL;    // preserve the NVMADR
+        addrL = NVMADRL;    // preserve the NVMADR as desired address
         addrH = NVMADRH;
         addrU = NVMADRU;
         
         flushFlash();       // erase and save old block
-        // record the start address of the block we have buffered
+        // record the start address of the new block we will buffer
         bufferAddrL = addrL & ~FLASH_BLOCK_MASK;
         bufferAddrH = addrH;
         bufferAddrU = addrU;
@@ -165,19 +191,21 @@ void writeFlashByte(unsigned char value) {
         // ready?
         while (NVMCON0bits.GO)
             ;
-        //Load NVMADR with the starting address of the memory page
+        //Load NVMADR with the starting address of the new memory page
         NVMADRU = bufferAddrU;
         NVMADRH = bufferAddrH;
         NVMADRL = bufferAddrL;
-        NVMCON1bits.NVMCMD = 0x02;      //Set the page read command
+        NVMCON1bits.NVMCMD = NVMCMD_READPAGE;      //Set the page read command
         NVMCON0bits.GO = 1;             //Start page read
-        NVMCON1bits.NVMCMD = 0x00;      //Clear the NVM Command
+        NVMCON1bits.NVMCMD = NVMCMD_NOP;      //Clear the NVM Command
+        // restore the pointer
+        NVMADRL = addrL;
+        NVMADRH = addrH;
+        NVMADRU = addrU;
     }
-    if (CLEARING_BITS(buffer[bufferAddrL & FLASH_BLOCK_MASK], value)) {
-        dirty = TRUE;
-    }
-    // save to the lock buffer
-    buffer[bufferAddrL & FLASH_BLOCK_MASK] = value;
+
+    // save to the buffer
+    buffer[NVMADRL & FLASH_BLOCK_MASK] = value;
 #endif
 }
 
@@ -198,14 +226,14 @@ void eraseFlash(void) {
     EECON1bits.WREN = 0;    // disable write to memory
 #endif
 #if defined(_18FXXQ83_FAMILY_)
-    NVMCON1bits.NVMCMD = 0x06;      //Set the page erase command
+    NVMCON1bits.NVMCMD = NVMCMD_ERASEPAGE;      //Set the page erase command
     //Perform the unlock sequence 
     NVMLOCK = 0x55;
     NVMLOCK = 0xAA;
     NVMCON0bits.GO = 1;             //Start byte write
     while (NVMCON0bits.GO)
         ;
-    NVMCON1bits.NVMCMD = 0x00;      //Clear the NVM Command
+    NVMCON1bits.NVMCMD = NVMCMD_NOP;      //Clear the NVM Command
 #endif
 }
 
@@ -217,10 +245,9 @@ void eraseFlash(void) {
  */
 void flushFlash(void) {
     // no need to do anything if clean
-    if (!dirty) {
-        return;
-    }
 #if defined(_18F66K80_FAMILY_)
+    // check we are not overwriting the bootloader itself
+    //if (bufferAddrH < BOOTLOADER_UPPER_ADDRESSH) return;
     TBLPTRL = bufferAddrL;
     TBLPTRH = bufferAddrH;
     eraseFlash();
@@ -245,24 +272,29 @@ void flushFlash(void) {
     while (EECON1bits.WR)       // wait for write to complete
         ;
     EECON1bits.WREN = FALSE;    // disable write to memory
+    
+    needsErasing = FALSE;
 #endif
 #if defined(_18FXXQ83_FAMILY_)
-    NVMADRL = bufferAddrL;
-    NVMADRH = bufferAddrH;
-    NVMADRU = bufferAddrU;
-    eraseFlash();
-    NVMCON1bits.NVMCMD = 0x05;      //Set the page write command
-    //Perform the unlock sequence 
-    NVMLOCK = 0x55;
-    NVMLOCK = 0xAA;
-    NVMCON0bits.GO = 1;             //Start byte write
-    while (NVMCON0bits.GO)
-        ;
-    NVMCON1bits.NVMCMD = 0x00;      //Clear the NVM Command
+    // check we are not overwriting the bootloader itself
+    if ((bufferAddrH >= BOOTLOADER_UPPER_ADDRESSH) || (bufferAddrU != 0)) {
+        NVMADRL = bufferAddrL;
+        NVMADRH = bufferAddrH;
+        NVMADRU = bufferAddrU;
+        eraseFlash();
+
+        NVMCON1bits.NVMCMD = NVMCMD_WRITEPAGE;      //Set the page write command
+        //Perform the unlock sequence 
+        NVMLOCK = 0x55;
+        NVMLOCK = 0xAA;
+        NVMCON0bits.GO = 1;             //Start byte write
+        while (NVMCON0bits.GO)
+            ;
+        NVMCON1bits.NVMCMD = NVMCMD_NOP;      //Clear the NVM Command
+    }
 #endif
     
-    dirty = FALSE;
-    
+
 #ifdef MODE_SELF_VERIFY
     // read back to verify
 #if defined(_18F66K80_FAMILY_)
@@ -280,11 +312,11 @@ void flushFlash(void) {
     NVMADRU = bufferAddrU;
     NVMADRH = bufferAddrH;
     NVMADRL = bufferAddrL;
-    NVMCON1bits.NVMCMD = 0x02;      //Set the page read command
+    NVMCON1bits.NVMCMD = NVMCMD_READPAGE;      //Set the page read command
     NVMCON0bits.GO = 1;             //Start page read
     while (NVMCON0bits.GO)
         ;
-    NVMCON1bits.NVMCMD = 0x00;      //Clear the NVM Command
+    NVMCON1bits.NVMCMD = NVMCMD_NOP;      //Clear the NVM Command
 #endif
 #endif
 }
@@ -310,29 +342,26 @@ void writeConfigByte(unsigned char value) {
      * missing CONFIG values, such as 0x30004, with 0xFF but these are read back 
      * as 0x00 so many CONFIG bytes would fail verification but be correct.
      * 
-#ifdef MODE_SELF_VERIFY
-    EECON1 = 0xC0;  // Flash Configuration space
-    if (readFlashByte() != value) {
-        errorStatus = VERIFY_ERROR;
-    }
-#endif
+    #ifdef MODE_SELF_VERIFY
+        EECON1 = 0xC0;  // Flash Configuration space
+        if (readFlashByte() != value) {
+            errorStatus = VERIFY_ERROR;
+        }
+    #endif
      */
 #endif
 #if defined(_18FXXQ83_FAMILY_)
     // ready?
     while (NVMCON0bits.GO)
         ;
-    NVMCON1bits.NVMCMD = 0;
-    NVMCON0bits.GO = 1;
-    
     NVMDATL = value;
     NVMDATH = 0;
-    NVMCON1bits.NVMCMD = 3;
+    NVMCON1bits.NVMCMD = NVMCMD_WRITE;
     //Perform the unlock sequence 
     NVMLOCK = 0x55;
     NVMLOCK = 0xAA;
     NVMCON0bits.GO = 1;
-    NVMCON1bits.NVMCMD = 0;
+    NVMCON1bits.NVMCMD = NVMCMD_NOP;
 #endif
 }
 
@@ -371,7 +400,7 @@ void ee_write(unsigned char data) {
         NVMADRU = 0x38;
         NVMDATL = data;
         //Set the byte write command
-        NVMCON1bits.NVMCMD = 0x03;
+        NVMCON1bits.NVMCMD = NVMCMD_WRITE;
         //Perform the unlock sequence 
         NVMLOCK = 0x55;
         NVMLOCK = 0xAA;
@@ -380,7 +409,7 @@ void ee_write(unsigned char data) {
         while (NVMCON0bits.GO)
             ;
         //Clear the NVM Command
-        NVMCON1bits.NVMCMD = 0x00;
+        NVMCON1bits.NVMCMD = NVMCMD_NOP;
 #endif
         
     } while (ee_read() != data);    //repeat if no match. This makes SELF_VERIFY unnecessary here
@@ -407,11 +436,12 @@ unsigned char ee_read(void) {
     NVMADRU = 0x38;
     
     //Set the byte read command
-    NVMCON1bits.NVMCMD = 0x00;
+    NVMCON1bits.NVMCMD = NVMCMD_READ;
     //Start byte read
     NVMCON0bits.GO = 1;
     while (NVMCON0bits.GO)
         ;
+    NVMCON1bits.NVMCMD = NVMCMD_NOP;
     return NVMDATL;
 #endif
 }
