@@ -166,6 +166,17 @@
 #include <stdint.h>
 #include <hwsettings.h>
 #include <main.h>
+
+typedef enum BL_Versions
+{
+    BL_TYPE_Unknown = 0,
+    BL_TYPE_MikeBolton = 1,
+    BL_TYPE_SysPixie = 2,
+    BL_TYPE_IanHogg = 3
+} BL_Versions;
+#define BL_VERSION  1
+const char bl_version[] = { 'B','L','_','V','E','R','S','I','O','N','=', BL_TYPE_IanHogg, BL_VERSION};
+
 // #define STATS        // Uncomment to collect stats of numbers of each type of message received
 #define SELF_VERIFY     // uncomment to read back data to ensure it has written ok
 
@@ -308,15 +319,6 @@ enum CAN_OP_MODE_STATUS
     CAN_OP_MODE_SYS_ERROR_OCCURED    /**< The system error occurred while setting operation mode. */
 };
 
-typedef enum BL_Versions
-{
-    BL_TYPE_Unknown = 0,
-    BL_TYPE_MikeBolton = 1,
-    BL_TYPE_SysPixie = 2,
-    BL_TYPE_IanHogg = 3
-} BL_Versions;
-#define BL_VERSION  1
-const char bl_version[] = { 'B','L','_','V','E','R','S','I','O','N','=', BL_TYPE_IanHogg, BL_VERSION};
 
 /**
  * @ingroup can_driver
@@ -811,7 +813,11 @@ void main(void) {
             if ((! CAN_PG_BIT) && (controlFrame.bootControlBits & MODE_ACK)) {
                 // send an ack
 #if defined(_18F66K80_FAMILY_)
+#ifdef MODE_SELF_VERIFY
                 TXB0D0 = errorStatus ? RESPONSE_NOK : RESPONSE_OK;
+#else
+                TXB0D0 = RESPONSE_OK;
+#endif
                 TXB0DLC = 1;
 #endif
 #if defined(_18FXXQ83_FAMILY_)
@@ -902,8 +908,13 @@ void main(void) {
              */
             if (controlFrame.bootSpecialCommand == CMD_CHK_RUN) {
 #if defined(_18F66K80_FAMILY_)
+#ifdef MODE_SELF_VERIFY
                 TXB0D0 = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) || (errorStatus)) ? 
                     RESPONSE_NOK : RESPONSE_OK;
+#else
+                TXB0D0 = ((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) ? 
+                    RESPONSE_NOK : RESPONSE_OK;
+#endif
                 TXB0DLC = 1;
 #endif
 #if defined(_18FXXQ83_FAMILY_)

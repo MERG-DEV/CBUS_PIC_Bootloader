@@ -102,8 +102,6 @@ static unsigned char bufferAddrU;
 
 
 #if defined(_18F66K80_FAMILY_)
-#define CLEARING_BITS(a, b) (a & (~b))
-static unsigned char needsErasing;
 static unsigned char w;
 #endif
 static unsigned char addrL;
@@ -119,9 +117,6 @@ unsigned char errorStatus;
 #endif
 
 void initRomops(void) {
-#if defined(_18F66K80_FAMILY_)
-    needsErasing = FALSE;
-#endif
     for (w=0; w<FLASH_BLOCK_SIZE; w++) {
         buffer[w] = 0xFF;
     }
@@ -163,15 +158,14 @@ void writeFlashByte(unsigned char value) {
         //read the entire new block into buffer
         for (w=0; w<FLASH_BLOCK_SIZE; w++) {
             TBLPTRL = bufferAddrL + w;
+            TBLPTRH = bufferAddrH;
             EECON1 = 0x80;  // Flash program space
             buffer[w] = readFlashByte();
         }
         TBLPTRL = addrL;    // restore it
         TBLPTRH = addrH;
     }
-    if (CLEARING_BITS(buffer[TBLPTRL & FLASH_BLOCK_MASK], value)) {
-        needsErasing = TRUE;
-    }
+
     // save to the buffer
     buffer[TBLPTRL & FLASH_BLOCK_MASK] = value;
 #endif
@@ -244,10 +238,10 @@ void eraseFlash(void) {
  * @return 
  */
 void flushFlash(void) {
-    // no need to do anything if clean
+
 #if defined(_18F66K80_FAMILY_)
     // check we are not overwriting the bootloader itself
-    //if (bufferAddrH < BOOTLOADER_UPPER_ADDRESSH) return;
+    if (bufferAddrH < BOOTLOADER_UPPER_ADDRESSH) return;
     TBLPTRL = bufferAddrL;
     TBLPTRH = bufferAddrH;
     eraseFlash();
@@ -272,8 +266,6 @@ void flushFlash(void) {
     while (EECON1bits.WR)       // wait for write to complete
         ;
     EECON1bits.WREN = FALSE;    // disable write to memory
-    
-    needsErasing = FALSE;
 #endif
 #if defined(_18FXXQ83_FAMILY_)
     // check we are not overwriting the bootloader itself
