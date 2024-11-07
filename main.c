@@ -166,14 +166,8 @@
 #include <stdint.h>
 #include <hwsettings.h>
 #include <main.h>
+#include "vlcbdefs.h"
 
-typedef enum BL_Versions
-{
-    BL_TYPE_Unknown = 0,
-    BL_TYPE_MikeBolton = 1,
-    BL_TYPE_SysPixie = 2,
-    BL_TYPE_IanHogg = 3
-} BL_Versions;
 #define BL_VERSION  1
 const char bl_version[] = { 'B','L','_','V','E','R','S','I','O','N','=', BL_TYPE_IanHogg, BL_VERSION};
 
