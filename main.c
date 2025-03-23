@@ -168,7 +168,7 @@
 #include <main.h>
 #include "vlcbdefs.h"
 
-#define BL_VERSION  1
+#define BL_VERSION  2
 const char bl_version[] = { 'B','L','_','V','E','R','S','I','O','N','=', BL_TYPE_IanHogg, BL_VERSION};
 
 // #define STATS        // Uncomment to collect stats of numbers of each type of message received
@@ -438,6 +438,10 @@ unsigned char w;    // general purpose
 volatile unsigned char * bufferPtr;
 unsigned char addrL;
 unsigned char addrH;
+unsigned long t1;   // timers used to 2 sec counter for when PB is held down
+
+unsigned char t2;
+#define TIMER_2SEC 0xFFFE
 
 #ifdef STATS
 unsigned char flashFrames;
@@ -479,7 +483,6 @@ void main(void) {
     // initialise the push button and LED ports
     SetPortDirections();  // make input
     
-    // next check if the bootflag is set and go to the application if clear
 #if defined(_18F66K80_FAMILY_)
     EEADR = 0xFF;
     EEADRH = 0xFF;
@@ -490,11 +493,28 @@ void main(void) {
     NVMADRH = 0x03;
     NVMADRL = 0xFF;
 #endif
+    // next check if the bootflag is set and go to the application if clear
     // FLIM_SW == 0 when pressed
     if ((ee_read() == 0) && (FLiM_SW)) {  // read last byte of EEPROM and check FLiM switch
 //#asm
         asm("goto "  ___mkstr(APP_RESET_VECT) );
 //#endasm
+    }
+    if (!(FLiM_SW)) {
+        // PB is being held down. If released before 2 seconds then continue to 
+        // bootloader. If held down for full 2 seconds go to the application
+        // to perhaps do factory reset or enter test mode
+        t1 = 0;
+        while (!(FLiM_SW)) {
+            if (t1 > TIMER_2SEC) {
+                asm("goto "  ___mkstr(APP_RESET_VECT) );
+            }
+            t2=0;
+            while (t2 < 0x07) {
+                t2++;
+            }
+            t1++;
+        }
     }
     
     // enable the 4x PLL
