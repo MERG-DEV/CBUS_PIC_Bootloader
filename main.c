@@ -1138,7 +1138,7 @@ void canInit(void)
  *************************************/
 void CAN1_OperationModeSet(const enum CAN_OP_MODES requestMode)
 {
-    C1CONTbits.REQOP = requestMode;
+    C1CONTbits.REQOP = (unsigned char)requestMode;
     while (C1CONUbits.OPMOD != requestMode)
         ;
 }
