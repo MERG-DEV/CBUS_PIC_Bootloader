@@ -168,7 +168,7 @@
 #include <main.h>
 #include "vlcbdefs.h"
 
-#define BL_VERSION  2
+#define BL_VERSION  3
 const char bl_version[] = { 'B','L','_','V','E','R','S','I','O','N','=', BL_TYPE_IanHogg, BL_VERSION};
 
 // #define STATS        // Uncomment to collect stats of numbers of each type of message received
@@ -375,6 +375,8 @@ enum CAN_OP_MODES CAN1_OperationModeGet(void);
 #define RESPONSE_NOK    0x00
 #define RESPONSE_OK     0x01
 #define RESPONSE_BOOT   0x02
+#define RESPONSE_NAK    0x04
+#define RESPONSE_ACK    0x05
 
 #define READ_BYTES_QTY     8
 
@@ -434,6 +436,7 @@ typedef struct DataFrame {
 
 unsigned char frameLength;		
 Integer16 ourChecksum;	//16 bit checksum we're calculating
+unsigned char verified;
 unsigned char w;    // general purpose
 volatile unsigned char * bufferPtr;
 unsigned char addrL;
@@ -552,6 +555,7 @@ void main(void) {
     initRomops();
     
     ourChecksum.word = 0;
+    verified = RESPONSE_NOK;
 #ifdef MODE_SELF_VERIFY
     errorStatus = NO_ERROR;
 #endif
@@ -583,6 +587,7 @@ void main(void) {
             /******************
              * Data frame
              ******************/
+            verified = RESPONSE_NOK;    // more data do no longer valid
 #ifdef STATS
             dataFrames++;
 #endif
@@ -828,9 +833,9 @@ void main(void) {
                 // send an ack
 #if defined(_18F66K80_FAMILY_)
 #ifdef MODE_SELF_VERIFY
-                TXB0D0 = errorStatus ? RESPONSE_NOK : RESPONSE_OK;
+                TXB0D0 = errorStatus ? RESPONSE_NAK : RESPONSE_ACK;
 #else
-                TXB0D0 = RESPONSE_OK;
+                TXB0D0 = RESPONSE_ACK;
 #endif
                 TXB0DLC = 1;
 #endif
@@ -839,9 +844,9 @@ void main(void) {
                     ;
                 txFifoObj = (uint8_t*) C1FIFOUA2;
 #ifdef MODE_SELF_VERIFY
-                txFifoObj[TX_D0] = errorStatus ? RESPONSE_NOK : RESPONSE_OK;
+                txFifoObj[TX_D0] = errorStatus ? RESPONSE_NAK : RESPONSE_ACK;
 #else
-                txFifoObj[TX_D0] = RESPONSE_OK;
+                txFifoObj[TX_D0] = RESPONSE_ACK;
 #endif
                 txFifoObj[TX_DLC] = TX_IDE | 1;
 #endif
@@ -884,20 +889,23 @@ void main(void) {
              * This is the reset command. Used to run the application.
              */
             if (controlFrame.bootSpecialCommand == CMD_RESET) {
-               // Clear the boot flag and enter the application
-#if defined(_18F66K80_FAMILY_)
-                EEADR = 0xFF;
-                EEADRH = 0xFF;
-#endif
-#if defined(_18FXXQ83_FAMILY_)
-                NVMADRU = 0x38;
-                NVMADRH = 0x03;
-                NVMADRL = 0xFF;
-#endif
-                ee_write(0);
-                LED1Y = LED_OFF;
-                LED2G = LED_OFF;
-                RESET();
+                // If not verified then ignore request and leave in bootloader
+                if (verified == RESPONSE_OK) {
+                   // Clear the boot flag and enter the application
+    #if defined(_18F66K80_FAMILY_)
+                    EEADR = 0xFF;
+                    EEADRH = 0xFF;
+    #endif
+    #if defined(_18FXXQ83_FAMILY_)
+                    NVMADRU = 0x38;
+                    NVMADRH = 0x03;
+                    NVMADRL = 0xFF;
+    #endif
+                    ee_write(0);
+                    LED1Y = LED_OFF;
+                    LED2G = LED_OFF;
+                    RESET();
+                }
             }
         
             /*********************************************************
@@ -909,6 +917,7 @@ void main(void) {
                 reset_chk_command++;
 #endif
                 ourChecksum.word = 0;
+                verified = RESPONSE_NOK;
 #ifdef MODE_SELF_VERIFY
                 errorStatus = NO_ERROR;
 #endif
@@ -923,12 +932,13 @@ void main(void) {
             if (controlFrame.bootSpecialCommand == CMD_CHK_RUN) {
 #if defined(_18F66K80_FAMILY_)
 #ifdef MODE_SELF_VERIFY
-                TXB0D0 = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) || (errorStatus)) ? 
+                verified = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) || (errorStatus)) ? 
                     RESPONSE_NOK : RESPONSE_OK;
 #else
-                TXB0D0 = ((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) ? 
+                verified = ((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) ? 
                     RESPONSE_NOK : RESPONSE_OK;
 #endif
+                TXB0D0 = verified;
                 TXB0DLC = 1;
 #endif
 #if defined(_18FXXQ83_FAMILY_)
@@ -936,12 +946,13 @@ void main(void) {
                     ;
                 txFifoObj = (uint8_t*) C1FIFOUA2;
 #ifdef MODE_SELF_VERIFY
-                txFifoObj[TX_D0] = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) || (errorStatus)) ? 
+                verified = (((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) || (errorStatus)) ? 
                     RESPONSE_NOK : RESPONSE_OK;
 #else
-                txFifoObj[TX_D0] = ((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) ? 
+                verified = ((ourChecksum.word + controlFrame.bootPCChecksum.word) != 0) ? 
                     RESPONSE_NOK : RESPONSE_OK;
 #endif
+                txFifoObj[TX_D0] = verified;
                 txFifoObj[TX_DLC] = TX_IDE | 1;
 #endif
                 canSendMessage(0);  // send with control
