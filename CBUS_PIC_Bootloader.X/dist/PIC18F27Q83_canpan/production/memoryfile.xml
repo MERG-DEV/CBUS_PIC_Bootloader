@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <executable name="dist/PIC18F27Q83_canpan/production\CBUS_PIC_Bootloader.X.production.hex">
+    <memory name="program">
+      <units>bytes</units>
+      <length>2048</length>
+      <used>1994</used>
+      <free>54</free>
+    </memory>
+    <memory name="data">
+      <units>bytes</units>
+      <length>12800</length>
+      <used>59</used>
+      <free>12741</free>
+    </memory>
+  </executable>
+</project>

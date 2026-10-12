@@ -1,0 +1,452 @@
+[p GLOBOPT AUTOSTATIC IEEE_FLT IEEE_DBL LFSROK EMI_WORD ]
+[d version 1.1 ]
+[d edition pro ]
+[d chip 18F27Q83 ]
+[d frameptr 1249 ]
+"1094 C:\Users\ianwh\github\CBUS_PIC_Bootloader/main.c
+[e E22766 CAN_OP_MODES `uc
+CAN_NORMAL_FD_MODE 0
+CAN_DISABLE_MODE 1
+CAN_INTERNAL_LOOPBACK_MODE 2
+CAN_LISTEN_ONLY_MODE 3
+CAN_CONFIGURATION_MODE 4
+CAN_EXTERNAL_LOOPBACK_MODE 5
+CAN_NORMAL_2_0_MODE 6
+CAN_RESTRICTED_OPERATION_MODE 7
+]
+"119 C:\Users\ianwh\github\CBUS_PIC_Bootloader/bl_romops.c
+[v _initRomops initRomops `(v  1 e 1 0 ]
+"134
+[v _readFlashByte readFlashByte `(uc  1 e 1 0 ]
+"143
+[v _writeFlashByte writeFlashByte `(v  1 e 1 0 ]
+"209
+[v _eraseFlash eraseFlash `(v  1 e 1 0 ]
+"240
+[v _flushFlash flushFlash `(v  1 e 1 0 ]
+"319
+[v _writeConfigByte writeConfigByte `(v  1 e 1 0 ]
+"371
+[v _ee_write ee_write `(v  1 e 1 0 ]
+"415
+[v _ee_read ee_read `(uc  1 e 1 0 ]
+"464 C:\Users\ianwh\github\CBUS_PIC_Bootloader/main.c
+[v _main main `(v  1 e 1 0 ]
+"991
+[v _canSendMessage canSendMessage `(v  1 e 1 0 ]
+"1082
+[v _canInit canInit `(v  1 e 1 0 ]
+"1150
+[v _CAN1_OperationModeSet CAN1_OperationModeSet `(v  1 e 1 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\__lldiv.c
+[v ___lldiv __lldiv `(ul  1 e 4 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\aldiv.c
+[v ___aldiv __aldiv `(l  1 e 4 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\almod.c
+[v ___almod __almod `(l  1 e 4 0 ]
+"9 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\aodiv.c
+[v ___aodiv __aodiv `(o  1 e 8 0 ]
+"9 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\aomod.c
+[v ___aomod __aomod `(o  1 e 8 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\atdiv.c
+[v ___atdiv __atdiv `(m  1 e 3 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\atmod.c
+[v ___atmod __atmod `(m  1 e 3 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\awdiv.c
+[v ___awdiv __awdiv `(i  1 e 2 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\awmod.c
+[v ___awmod __awmod `(i  1 e 2 0 ]
+"4 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\fleq.c
+[v ___fleq __fleq `(b  1 e 0 0 ]
+"62 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\float.c
+[v ___ftpack __ftpack `(f  1 e 4 0 ]
+"86 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\ftadd.c
+[v ___ftadd __ftadd `(f  1 e 4 0 ]
+"54 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\ftdiv.c
+[v ___ftdiv __ftdiv `(f  1 e 4 0 ]
+"62 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\ftmul.c
+[v ___ftmul __ftmul `(f  1 e 4 0 ]
+"19 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\ftsub.c
+[v ___ftsub __ftsub `(f  1 e 4 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\llmod.c
+[v ___llmod __llmod `(ul  1 e 4 0 ]
+"9 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\lodiv.c
+[v ___lodiv __lodiv `(uo  1 e 8 0 ]
+"9 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\lomod.c
+[v ___lomod __lomod `(uo  1 e 8 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\ltdiv.c
+[v ___ltdiv __ltdiv `(um  1 e 3 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\ltmod.c
+[v ___ltmod __ltmod `(um  1 e 3 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\lwdiv.c
+[v ___lwdiv __lwdiv `(ui  1 e 2 0 ]
+"7 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\lwmod.c
+[v ___lwmod __lwmod `(ui  1 e 2 0 ]
+"10 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\sprcadd.c
+[v ___fladd __fladd `(d  1 e 4 0 ]
+"245
+[v ___flsub __flsub `(d  1 e 4 0 ]
+"11 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\sprcdiv.c
+[v ___fldiv __fldiv `(d  1 e 4 0 ]
+"8 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\sprcmul.c
+[v ___flmul __flmul `(d  1 e 4 0 ]
+"15 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\Umul16.c
+[v ___wmul __wmul `(ui  1 e 2 0 ]
+"15 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\Umul24.c
+[v ___tmul __tmul `(um  1 e 3 0 ]
+"15 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\Umul32.c
+[v ___lmul __lmul `(ul  1 e 4 0 ]
+"91 C:\Program Files\Microchip\xc8\v3.10\pic\sources\c99\common\Umul64.c
+[v ___omul __omul `(uo  1 e 8 0 ]
+"88 C:\Users\ianwh\github\CBUS_PIC_Bootloader/bl_romops.c
+[v _bufferAddrL bufferAddrL `uc  1 s 1 bufferAddrL ]
+"89
+[v _bufferAddrH bufferAddrH `uc  1 s 1 bufferAddrH ]
+"97
+[v _bufferAddrU bufferAddrU `uc  1 s 1 bufferAddrU ]
+"107
+[v _addrL@bl_romops$F77 addrL `uc  1 s 1 addrL ]
+"108
+[v _addrH@bl_romops$F78 addrH `uc  1 s 1 addrH ]
+"110
+[v _addrU addrU `uc  1 s 1 addrU ]
+"112
+[v _w@bl_romops$F80 w `us  1 s 2 w ]
+"71 C:\Users\ianwh\github\CBUS_PIC_Bootloader/hwsettings.c
+[v _clkMHz clkMHz `uc  1 e 1 0 ]
+"250 C:\Users\ianwh\github\CBUS_PIC_Bootloader/main.c
+[v _rxFifoObj rxFifoObj `*.39uc  1 e 2 0 ]
+"266
+[v _txFifoObj txFifoObj `*.39uc  1 e 2 0 ]
+[s S97 . 3 `uc 1 l 1 0 `uc 1 h 1 1 `uc 1 u 1 2 ]
+"430
+[u S101 . 3 `S97 1 . 3 0 `um 1 triple 3 0 ]
+[s S104 . 2 `uc 1 l 1 0 `uc 1 h 1 1 ]
+[u S107 . 2 `S104 1 . 2 0 `us 1 word 2 0 ]
+[s S110 ControlFrame 8 `S101 1 bootAddress 3 0 `uc 1 _unused0 1 3 `uc 1 bootControlBits 1 4 `uc 1 bootSpecialCommand 1 5 `S107 1 bootPCChecksum 2 6 ]
+[v _controlFrame controlFrame `S110  1 e 8 0 ]
+"431
+[v _controlFramePtr controlFramePtr `*.39uc  1 e 2 0 ]
+"437
+[v _frameLength frameLength `uc  1 e 1 0 ]
+"438
+[v _ourChecksum ourChecksum `S107  1 e 2 0 ]
+"439
+[v _verified verified `uc  1 e 1 0 ]
+"440
+[v _w w `uc  1 e 1 0 ]
+"441
+[v _bufferPtr bufferPtr `*.39VEuc  1 e 2 0 ]
+"444
+[v _t1 t1 `ul  1 e 4 0 ]
+"446
+[v _t2 t2 `uc  1 e 1 0 ]
+[s S32 . 1 `uc 1 GO 1 0 :1:0 
+]
+"526 C:/Users/ianwh/.mchp_packs/Microchip/PIC18F-Q_DFP/1.31.492/xc8\pic\include\proc/pic18f27q83.h
+[s S34 . 1 `uc 1 NOT_DONE 1 0 :1:0 
+]
+[s S36 . 1 `uc 1 nDONE 1 0 :1:0 
+]
+[u S38 . 1 `S32 1 . 1 0 `S34 1 . 1 0 `S36 1 . 1 0 ]
+[v _NVMCON0bits NVMCON0bits `VES38  1 e 1 @64 ]
+[s S49 . 1 `uc 1 CMD 1 0 :3:0 
+`uc 1 . 1 0 :4:3 
+`uc 1 WRERR 1 0 :1:7 
+]
+"561
+[s S53 . 1 `uc 1 NVMCMD 1 0 :3:0 
+]
+[u S55 . 1 `S49 1 . 1 0 `S53 1 . 1 0 ]
+[v _NVMCON1bits NVMCON1bits `VES55  1 e 1 @65 ]
+"581
+[v _NVMLOCK NVMLOCK `VEuc  1 e 1 @66 ]
+"610
+[v _NVMADRL NVMADRL `VEuc  1 e 1 @67 ]
+"680
+[v _NVMADRH NVMADRH `VEuc  1 e 1 @68 ]
+"750
+[v _NVMADRU NVMADRU `VEuc  1 e 1 @69 ]
+"815
+[v _NVMDATL NVMDATL `VEuc  1 e 1 @70 ]
+"885
+[v _NVMDATH NVMDATH `VEuc  1 e 1 @71 ]
+[s S187 . 1 `uc 1 NDIV 1 0 :4:0 
+`uc 1 NOSC 1 0 :3:4 
+]
+"5285
+[s S190 . 1 `uc 1 NDIV0 1 0 :1:0 
+`uc 1 NDIV1 1 0 :1:1 
+`uc 1 NDIV2 1 0 :1:2 
+`uc 1 NDIV3 1 0 :1:3 
+`uc 1 NOSC0 1 0 :1:4 
+`uc 1 NOSC1 1 0 :1:5 
+`uc 1 NOSC2 1 0 :1:6 
+]
+[u S198 . 1 `S187 1 . 1 0 `S190 1 . 1 0 ]
+[v _OSCCON1bits OSCCON1bits `VES198  1 e 1 @173 ]
+"8873
+[v _C1CONL C1CONL `VEuc  1 e 1 @256 ]
+"8932
+[v _C1CONH C1CONH `VEuc  1 e 1 @257 ]
+[s S312 . 1 `uc 1 WAKFIL 1 0 :1:0 
+`uc 1 WFT 1 0 :2:1 
+`uc 1 BUSY 1 0 :1:3 
+`uc 1 . 1 0 :1:4 
+`uc 1 SIDL 1 0 :1:5 
+`uc 1 FRZ 1 0 :1:6 
+`uc 1 ON 1 0 :1:7 
+]
+"8953
+[s S320 . 1 `uc 1 . 1 0 :1:0 
+`uc 1 WFT0 1 0 :1:1 
+`uc 1 WFT1 1 0 :1:2 
+]
+[u S324 . 1 `S312 1 . 1 0 `S320 1 . 1 0 ]
+[v _C1CONHbits C1CONHbits `VES324  1 e 1 @257 ]
+"8998
+[v _C1CONU C1CONU `VEuc  1 e 1 @258 ]
+[s S403 . 1 `uc 1 RTXAT 1 0 :1:0 
+`uc 1 ESIGM 1 0 :1:1 
+`uc 1 SERR2LOM 1 0 :1:2 
+`uc 1 STEF 1 0 :1:3 
+`uc 1 TXQEN 1 0 :1:4 
+`uc 1 OPMOD 1 0 :3:5 
+]
+"9019
+[s S410 . 1 `uc 1 . 1 0 :5:0 
+`uc 1 OPMOD0 1 0 :1:5 
+`uc 1 OPMOD1 1 0 :1:6 
+`uc 1 OPMOD2 1 0 :1:7 
+]
+[u S415 . 1 `S403 1 . 1 0 `S410 1 . 1 0 ]
+[v _C1CONUbits C1CONUbits `VES415  1 e 1 @258 ]
+"9069
+[v _C1CONT C1CONT `VEuc  1 e 1 @259 ]
+[s S373 . 1 `uc 1 REQOP 1 0 :3:0 
+`uc 1 ABAT 1 0 :1:3 
+`uc 1 TXBWS 1 0 :4:4 
+]
+"9091
+[s S377 . 1 `uc 1 REQOP0 1 0 :1:0 
+`uc 1 REQOP1 1 0 :1:1 
+`uc 1 REQOP2 1 0 :1:2 
+`uc 1 . 1 0 :1:3 
+`uc 1 TXBWS0 1 0 :1:4 
+`uc 1 TXBWS1 1 0 :1:5 
+`uc 1 TXBWS2 1 0 :1:6 
+`uc 1 TXBWS3 1 0 :1:7 
+]
+[u S386 . 1 `S373 1 . 1 0 `S377 1 . 1 0 ]
+[v _C1CONTbits C1CONTbits `VES386  1 e 1 @259 ]
+"9146
+[v _C1NBTCFGL C1NBTCFGL `VEuc  1 e 1 @260 ]
+"9210
+[v _C1NBTCFGH C1NBTCFGH `VEuc  1 e 1 @261 ]
+"9274
+[v _C1NBTCFGU C1NBTCFGU `VEuc  1 e 1 @262 ]
+"9344
+[v _C1NBTCFGT C1NBTCFGT `VEuc  1 e 1 @263 ]
+"12943
+[v _C1FIFOBA C1FIFOBA `VEul  1 e 4 @332 ]
+"14482
+[v _C1FIFOCON2L C1FIFOCON2L `VEuc  1 e 1 @360 ]
+"14544
+[v _C1FIFOCON2H C1FIFOCON2H `VEuc  1 e 1 @361 ]
+"14576
+[v _C1FIFOCON2U C1FIFOCON2U `VEuc  1 e 1 @362 ]
+"14646
+[v _C1FIFOCON2T C1FIFOCON2T `VEuc  1 e 1 @363 ]
+[s S239 . 1 `uc 1 TFNRFNIF 1 0 :1:0 
+`uc 1 TFHRFHIF 1 0 :1:1 
+`uc 1 TFERFFIF 1 0 :1:2 
+`uc 1 RXOVIF 1 0 :1:3 
+`uc 1 TXATIF 1 0 :1:4 
+`uc 1 TXERR 1 0 :1:5 
+`uc 1 TXLARB 1 0 :1:6 
+`uc 1 TXABT 1 0 :1:7 
+]
+"14722
+[u S248 . 1 `S239 1 . 1 0 ]
+[v _C1FIFOSTA2Lbits C1FIFOSTA2Lbits `VES248  1 e 1 @364 ]
+"14833
+[v _C1FIFOUA2 C1FIFOUA2 `VEul  1 e 4 @368 ]
+"15127
+[v _C1FIFOCON3L C1FIFOCON3L `VEuc  1 e 1 @372 ]
+"15189
+[v _C1FIFOCON3H C1FIFOCON3H `VEuc  1 e 1 @373 ]
+[s S297 . 1 `uc 1 UINC 1 0 :1:0 
+`uc 1 TXREQ 1 0 :1:1 
+`uc 1 FRESET 1 0 :1:2 
+]
+"15201
+[u S301 . 1 `S297 1 . 1 0 ]
+[v _C1FIFOCON3Hbits C1FIFOCON3Hbits `VES301  1 e 1 @373 ]
+"15221
+[v _C1FIFOCON3U C1FIFOCON3U `VEuc  1 e 1 @374 ]
+"15291
+[v _C1FIFOCON3T C1FIFOCON3T `VEuc  1 e 1 @375 ]
+"15367
+[v _C1FIFOSTA3Lbits C1FIFOSTA3Lbits `VES248  1 e 1 @376 ]
+"15478
+[v _C1FIFOUA3 C1FIFOUA3 `VEul  1 e 4 @380 ]
+"15765
+[v _C1FLTCON0L C1FLTCON0L `VEuc  1 e 1 @384 ]
+"16696
+[v _C1FLTOBJ0T C1FLTOBJ0T `VEuc  1 e 1 @399 ]
+"16983
+[v _C1MASK0T C1MASK0T `VEuc  1 e 1 @403 ]
+"23881
+[v _RB2PPS RB2PPS `VEuc  1 e 1 @523 ]
+"24581
+[v _CANRXPPS CANRXPPS `VEuc  1 e 1 @573 ]
+"47593
+[v _IPR5 IPR5 `VEuc  1 e 1 @871 ]
+"58825
+[v _ANSELA ANSELA `VEuc  1 e 1 @1024 ]
+"58887
+[v _WPUA WPUA `VEuc  1 e 1 @1025 ]
+"59321
+[v _ANSELB ANSELB `VEuc  1 e 1 @1032 ]
+[s S213 . 1 `uc 1 LATB0 1 0 :1:0 
+`uc 1 LATB1 1 0 :1:1 
+`uc 1 LATB2 1 0 :1:2 
+`uc 1 LATB3 1 0 :1:3 
+`uc 1 LATB4 1 0 :1:4 
+`uc 1 LATB5 1 0 :1:5 
+`uc 1 LATB6 1 0 :1:6 
+`uc 1 LATB7 1 0 :1:7 
+]
+"67801
+[u S222 . 1 `S213 1 . 1 0 ]
+"67801
+"67801
+[v _LATBbits LATBbits `VES222  1 e 1 @1215 ]
+[s S141 . 1 `uc 1 TRISA0 1 0 :1:0 
+`uc 1 TRISA1 1 0 :1:1 
+`uc 1 TRISA2 1 0 :1:2 
+`uc 1 TRISA3 1 0 :1:3 
+`uc 1 TRISA4 1 0 :1:4 
+`uc 1 TRISA5 1 0 :1:5 
+`uc 1 TRISA6 1 0 :1:6 
+`uc 1 TRISA7 1 0 :1:7 
+]
+"67925
+[u S150 . 1 `S141 1 . 1 0 ]
+"67925
+"67925
+[v _TRISAbits TRISAbits `VES150  1 e 1 @1222 ]
+[s S120 . 1 `uc 1 TRISB0 1 0 :1:0 
+`uc 1 TRISB1 1 0 :1:1 
+`uc 1 TRISB2 1 0 :1:2 
+`uc 1 TRISB3 1 0 :1:3 
+`uc 1 TRISB4 1 0 :1:4 
+`uc 1 TRISB5 1 0 :1:5 
+`uc 1 TRISB6 1 0 :1:6 
+`uc 1 TRISB7 1 0 :1:7 
+]
+"67987
+[u S129 . 1 `S120 1 . 1 0 ]
+"67987
+"67987
+[v _TRISBbits TRISBbits `VES129  1 e 1 @1223 ]
+[s S166 . 1 `uc 1 RA0 1 0 :1:0 
+`uc 1 RA1 1 0 :1:1 
+`uc 1 RA2 1 0 :1:2 
+`uc 1 RA3 1 0 :1:3 
+`uc 1 RA4 1 0 :1:4 
+`uc 1 RA5 1 0 :1:5 
+`uc 1 RA6 1 0 :1:6 
+`uc 1 RA7 1 0 :1:7 
+]
+"68132
+[u S175 . 1 `S166 1 . 1 0 ]
+"68132
+"68132
+[v _PORTAbits PORTAbits `VES175  1 e 1 @1230 ]
+"69258
+[v _TABLAT TABLAT `VEuc  1 e 1 @1269 ]
+"69287
+[v _TBLPTRL TBLPTRL `VEuc  1 e 1 @1270 ]
+"69307
+[v _TBLPTRH TBLPTRH `VEuc  1 e 1 @1271 ]
+"69327
+[v _TBLPTRU TBLPTRU `VEuc  1 e 1 @1272 ]
+"464 C:\Users\ianwh\github\CBUS_PIC_Bootloader/main.c
+[v _main main `(v  1 e 1 0 ]
+{
+"987
+} 0
+"143 C:\Users\ianwh\github\CBUS_PIC_Bootloader/bl_romops.c
+[v _writeFlashByte writeFlashByte `(v  1 e 1 0 ]
+{
+[v writeFlashByte@value value `uc  1 p 1 wreg ]
+[v writeFlashByte@value value `uc  1 p 1 wreg ]
+"173
+[v writeFlashByte@value value `uc  1 p 1 16 ]
+"204
+} 1
+"240
+[v _flushFlash flushFlash `(v  1 e 1 0 ]
+{
+"314
+} 0
+"209
+[v _eraseFlash eraseFlash `(v  1 e 1 0 ]
+{
+"232
+} 0
+"319
+[v _writeConfigByte writeConfigByte `(v  1 e 1 0 ]
+{
+[v writeConfigByte@value value `uc  1 p 1 wreg ]
+[v writeConfigByte@value value `uc  1 p 1 wreg ]
+[v writeConfigByte@value value `uc  1 p 1 0 ]
+"358
+} 1
+"134
+[v _readFlashByte readFlashByte `(uc  1 e 1 0 ]
+{
+"137
+} 0
+"119
+[v _initRomops initRomops `(v  1 e 1 0 ]
+{
+"128
+} 0
+"371
+[v _ee_write ee_write `(v  1 e 1 0 ]
+{
+[v ee_write@data data `uc  1 p 1 wreg ]
+[v ee_write@data data `uc  1 p 1 wreg ]
+[v ee_write@data data `uc  1 p 1 0 ]
+"408
+} 1
+"415
+[v _ee_read ee_read `(uc  1 e 1 0 ]
+{
+"439
+} 0
+"991 C:\Users\ianwh\github\CBUS_PIC_Bootloader/main.c
+[v _canSendMessage canSendMessage `(v  1 e 1 0 ]
+{
+[v canSendMessage@cdBit cdBit `uc  1 p 1 wreg ]
+[v canSendMessage@cdBit cdBit `uc  1 p 1 wreg ]
+"1009
+[v canSendMessage@cdBit cdBit `uc  1 p 1 0 ]
+"1028
+} 1
+"1082
+[v _canInit canInit `(v  1 e 1 0 ]
+{
+"1146
+} 0
+"1150
+[v _CAN1_OperationModeSet CAN1_OperationModeSet `(v  1 e 1 0 ]
+{
+[v CAN1_OperationModeSet@requestMode requestMode `CE22766  1 p 1 wreg ]
+[v CAN1_OperationModeSet@requestMode requestMode `CE22766  1 p 1 wreg ]
+"1152
+[v CAN1_OperationModeSet@requestMode requestMode `CE22766  1 p 1 0 ]
+"1155
+} 1

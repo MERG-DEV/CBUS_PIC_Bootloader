@@ -1,0 +1,18 @@
+#
+# Generated - do not edit!
+#
+# NOCDDL
+#
+CND_BASEDIR=`pwd`
+# PIC18F26K80_canmio configuration
+CND_ARTIFACT_DIR_PIC18F26K80_canmio=dist/PIC18F26K80_canmio/production
+CND_ARTIFACT_NAME_PIC18F26K80_canmio=CBUS_PIC_Bootloader.X.production.hex
+CND_ARTIFACT_PATH_PIC18F26K80_canmio=dist/PIC18F26K80_canmio/production/CBUS_PIC_Bootloader.X.production.hex
+# PIC18F27Q83_canmio configuration
+CND_ARTIFACT_DIR_PIC18F27Q83_canmio=dist/PIC18F27Q83_canmio/production
+CND_ARTIFACT_NAME_PIC18F27Q83_canmio=CBUS_PIC_Bootloader.X.production.hex
+CND_ARTIFACT_PATH_PIC18F27Q83_canmio=dist/PIC18F27Q83_canmio/production/CBUS_PIC_Bootloader.X.production.hex
+# PIC18F27Q83_canpan configuration
+CND_ARTIFACT_DIR_PIC18F27Q83_canpan=dist/PIC18F27Q83_canpan/production
+CND_ARTIFACT_NAME_PIC18F27Q83_canpan=CBUS_PIC_Bootloader.X.production.hex
+CND_ARTIFACT_PATH_PIC18F27Q83_canpan=dist/PIC18F27Q83_canpan/production/CBUS_PIC_Bootloader.X.production.hex

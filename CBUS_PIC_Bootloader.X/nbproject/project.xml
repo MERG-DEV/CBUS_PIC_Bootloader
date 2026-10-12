@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.netbeans.org/ns/project/1">
+    <type>com.microchip.mplab.nbide.embedded.makeproject</type>
+    <configuration>
+        <data xmlns="http://www.netbeans.org/ns/make-project/1">
+            <name>CBUS_PIC_Bootloader</name>
+            <creation-uuid>27a13cdf-fca4-42ce-aefe-5ffe11bf473c</creation-uuid>
+            <make-project-type>0</make-project-type>
+            <sourceEncoding>ISO-8859-1</sourceEncoding>
+            <make-dep-projects/>
+            <sourceRootList>
+                <sourceRootElem>../../VLCBlib_PIC</sourceRootElem>
+                <sourceRootElem>..</sourceRootElem>
+                <sourceRootElem>../../cbusdefs</sourceRootElem>
+                <sourceRootElem>../../VLCB-defs</sourceRootElem>
+            </sourceRootList>
+            <confList>
+                <confElem>
+                    <name>PIC18F26K80_canmio</name>
+                    <type>2</type>
+                </confElem>
+                <confElem>
+                    <name>PIC18F27Q83_canmio</name>
+                    <type>2</type>
+                </confElem>
+                <confElem>
+                    <name>PIC18F27Q83_canpan</name>
+                    <type>2</type>
+                </confElem>
+            </confList>
+            <formatting>
+                <project-formatting-style>false</project-formatting-style>
+            </formatting>
+        </data>
+    </configuration>
+</project>
