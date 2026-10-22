@@ -168,7 +168,7 @@
 #include <main.h>
 #include "vlcbdefs.h"
 
-#define BL_VERSION  3
+#define BL_VERSION  4
 const char bl_version[] = { 'B','L','_','V','E','R','S','I','O','N','=', BL_TYPE_IanHogg, BL_VERSION};
 
 // #define STATS        // Uncomment to collect stats of numbers of each type of message received
